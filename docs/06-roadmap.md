@@ -42,6 +42,14 @@ pytest ; ruff check .
 
 **gateway 단독 확인**(1~4): `python tools/ws_client.py` — 세션 생성 → PC(PiP 켬)+폰 역할로 왕복하고 status·ack·PiP·시계 추정을 OK/NG로 출력합니다.
 
+**확인 기록** (2026-10-29)
+- `pytest` 57개 통과, `ruff check`/`ruff format --check` 통과
+- `gen_cert.py`(Wi-Fi 192.168.45.89) → `docker compose up -d` → gateway HTTPS 기동, 4개 서비스 healthy
+- `mobile_url`이 localhost·LAN IP 접속 모두 `https://192.168.45.89:8443/mobile/?s=…`
+- `ws_client.py`(wss, 6초, skew 3000ms): 90장 송신·90장 ack·버림 0, ack p50 4.0ms, PiP 90장, 추정 offset 2990ms(RTT 2.5ms) — 4개 항목 OK
+- 실제 폰(같은 Wi-Fi)에서 `https://192.168.45.89:8443/mobile/` 인증서 수락 후 보안 컨텍스트 확인(카메라 사용 가능 조건). Wi-Fi가 공용 프로필이지만 별도 방화벽 규칙 없이 접속됨
+- 남은 확인: mobile·canvas 페이지가 붙은 뒤 QR 스캔 → PiP 켜기/끄기 → 폰 송신 fps·버린 프레임 수
+
 **확인 방법**: PC에서 QR 표시 → 폰으로 스캔 → PiP를 켜면 영상이 보이고, 끄면 PC 수신이 멈추는지 확인합니다. 폰 화면의 송신 fps와 버린 프레임 수도 확인합니다.
 
 ## 3단계 — 손 뼈대
