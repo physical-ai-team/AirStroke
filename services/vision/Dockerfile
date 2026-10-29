@@ -6,8 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # opencv-contrib-python: libGL, glib / mediapipe가 import 시 sounddevice를 불러옴: PortAudio
+# mediapipe tasks(libmediapipe.so)는 CPU 전용이어도 EGL·GLESv2를 링크함: libegl1, libgles2
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libportaudio2 \
+    && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 libportaudio2 libegl1 libgles2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -18,9 +20,12 @@ RUN pip install --no-cache-dir -r shared/requirements.txt -r services/vision/req
 COPY shared shared
 RUN pip install --no-cache-dir --no-deps ./shared
 
-COPY services/vision/vision services/vision/vision
-
+# 모델은 코드보다 먼저 받아 레이어 캐시를 살린다 (model.py 가 바뀔 때만 다시 받음)
 WORKDIR /app/services/vision
+COPY services/vision/vision/model.py vision/model.py
+RUN python vision/model.py
+
+COPY services/vision/vision vision
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-m", "airstroke_shared.health", "vision"]
 CMD ["python", "-m", "vision"]
