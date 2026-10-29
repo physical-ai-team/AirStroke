@@ -1,13 +1,16 @@
 /* 폰 카메라 PiP 패널 (pip.js). stage 네 모서리 중 하나에 놓인다 */
 #stage { position: relative; }
 #pip {
-  position: absolute; z-index: 5; width: 25%; min-width: 200px; aspect-ratio: 4 / 3;
+  position: absolute; z-index: 5; width: 25%; min-width: 160px; aspect-ratio: 4 / 3;
   max-height: calc(100% - 32px); /* 세로 영상이어도 stage 밖(툴바)으로 커지지 않게 */
   background: #000; border: 2px solid #444; border-radius: 8px; overflow: hidden;
   box-shadow: 0 2px 12px #0008;
   pointer-events: none; /* 패널 아래 그림판 입력(테스트 모드 마우스)을 막지 않게 */
 }
 #pip[hidden] { display: none; }
+#pip.size-s { width: 15%; }
+#pip.size-m { width: 25%; }
+#pip.size-l { width: 40%; }
 #pip.br { right: 16px; bottom: 16px; }
 #pip.bl { left: 16px; bottom: 16px; }
 #pip.tl { left: 16px; top: 16px; }
@@ -19,11 +22,14 @@
   background: #000a; color: #aaa; font-size: 1.1rem;
 }
 .pip-empty[hidden] { display: none; }
-.pip-move {
-  position: absolute; top: 6px; right: 6px; padding: .1rem .5rem;
-  background: #000a; border-color: #666; opacity: .6; pointer-events: auto;
+.pip-controls {
+  position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; pointer-events: auto;
 }
-.pip-move:hover { opacity: 1; }
+.pip-controls button {
+  min-width: 1.8rem; padding: .1rem .4rem; background: #000a; border-color: #666; opacity: .6;
+}
+.pip-controls button:hover { opacity: 1; }
+.pip-controls button:disabled { opacity: .25; cursor: default; }
 /* 폰 접속용 QR 은 PiP 보다 위 (#board 는 쌓임 맥락을 만들지 않으므로 stage 기준으로 비교됨) */
 #qr { z-index: 6; }
 #pipToggle.on { background: #2e5d34; border-color: #4a8; }

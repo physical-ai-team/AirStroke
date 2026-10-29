@@ -5,7 +5,9 @@
 const CORNERS = ['br', 'bl', 'tl', 'tr']; // 이동 버튼을 누를 때마다 이 순서로 돈다
 const ARROWS = { br: '↘', bl: '↙', tl: '↖', tr: '↗' };
 const STALE_MS = 2000; // 이 시간 동안 프레임이 없으면 "영상 없음"
-const CORNER_KEY = 'airstroke.pip.corner'; // 위치만 기억 (켜짐 상태는 매번 꺼짐으로 시작)
+const SIZES = ['s', 'm', 'l']; // 패널 너비 소·중·대 (pip.css)
+const CORNER_KEY = 'airstroke.pip.corner'; // 위치·크기만 기억 (켜짐 상태는 매번 꺼짐으로 시작)
+const SIZE_KEY = 'airstroke.pip.size';
 
 // [4B big-endian 헤더 길이 N][N B UTF-8 JSON 헤더][JPEG] → {header, jpeg}, 형식이 틀리면 null
 export function parseFrame(buf) {
@@ -22,22 +24,23 @@ export function parseFrame(buf) {
   return { header, jpeg: new Blob([new Uint8Array(buf, 4 + n)], { type: 'image/jpeg' }) };
 }
 
-function loadCorner() {
+function load(key, allowed, fallback) {
   try {
-    const c = localStorage.getItem(CORNER_KEY);
-    if (CORNERS.includes(c)) return c;
-  } catch { /* 저장소 막힘 → 기본 위치 */ }
-  return CORNERS[0];
+    const v = localStorage.getItem(key);
+    if (allowed.includes(v)) return v;
+  } catch { /* 저장소 막힘 → 기본값 */ }
+  return fallback;
 }
 
-function saveCorner(c) {
-  try { localStorage.setItem(CORNER_KEY, c); } catch { /* 무시 */ }
+function save(key, v) {
+  try { localStorage.setItem(key, v); } catch { /* 무시 */ }
 }
 
 // 툴바에 켜기/끄기 버튼, stage 에 패널을 만든다.
 // app.js 는 연결될 때마다 attach(ws), 바이너리 메시지는 onFrame(buf) 로 넘긴다.
 export function createPip({ stage, toolbar }) {
-  let enabled = false, ws = null, corner = loadCorner();
+  let enabled = false, ws = null;
+  let corner = load(CORNER_KEY, CORNERS, CORNERS[0]), size = load(SIZE_KEY, SIZES, 'm');
   let gen = 0; // 켜기/끄기마다 증가 → 그 전에 디코드하던 프레임은 버린다
   let pending = null, decoding = false, lastFrameAt = 0;
 
@@ -56,7 +59,16 @@ export function createPip({ stage, toolbar }) {
   const move = document.createElement('button');
   move.className = 'pip-move';
   move.title = '다른 모서리로 옮기기';
-  panel.append(view, empty, move);
+  const smaller = document.createElement('button');
+  smaller.textContent = '−';
+  smaller.title = '작게';
+  const bigger = document.createElement('button');
+  bigger.textContent = '+';
+  bigger.title = '크게';
+  const controls = document.createElement('div');
+  controls.className = 'pip-controls';
+  controls.append(smaller, bigger, move);
+  panel.append(view, empty, controls);
   stage.append(panel);
 
   function send() {
@@ -67,7 +79,9 @@ export function createPip({ stage, toolbar }) {
     toggle.textContent = enabled ? '📷 PiP 끄기' : '📷 PiP 켜기';
     toggle.classList.toggle('on', enabled);
     panel.hidden = !enabled;
-    panel.className = corner;
+    panel.className = `${corner} size-${size}`;
+    smaller.disabled = size === SIZES[0];
+    bigger.disabled = size === SIZES[SIZES.length - 1];
     move.textContent = ARROWS[CORNERS[(CORNERS.indexOf(corner) + 1) % CORNERS.length]];
   }
 
@@ -84,9 +98,18 @@ export function createPip({ stage, toolbar }) {
 
   move.onclick = () => {
     corner = CORNERS[(CORNERS.indexOf(corner) + 1) % CORNERS.length];
-    saveCorner(corner);
+    save(CORNER_KEY, corner);
     render();
   };
+
+  function resizeBy(step) {
+    const i = Math.min(SIZES.length - 1, Math.max(0, SIZES.indexOf(size) + step));
+    size = SIZES[i];
+    save(SIZE_KEY, size);
+    render();
+  }
+  smaller.onclick = () => resizeBy(-1);
+  bigger.onclick = () => resizeBy(1);
 
   function draw(bmp, mirror) {
     if (view.width !== bmp.width || view.height !== bmp.height) {
