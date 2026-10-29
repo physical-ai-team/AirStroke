@@ -5,7 +5,7 @@
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 1 | docker-compose 뼈대, 서비스 헬스체크, Redis 연결, shared 스키마, 개발 도구 | ✅ 완료 (2026-10-29) |
-| 2 | QR 페어링, 폰 → gateway 프레임 스트리밍, 시계 차이 추정, PC PiP 영상 | ⏳ 다음 |
+| 2 | QR 페어링, 폰 → gateway 프레임 스트리밍, 시계 차이 추정, PC PiP 영상 | 🚧 진행 중 (gateway 1~4 완료) |
 | 3 | vision 연동, PC에 손 뼈대·제스처 라벨 표시, 전체 지연시간 표시 | |
 | 4 | gesture 연동, 검지로 그리기 | |
 | 5 | 지우개, 색상 변경, 실행 취소, PNG 저장 | |
@@ -33,12 +33,14 @@ pytest ; ruff check .
 
 ## 2단계 — 페어링과 스트리밍
 **구현 순서** (팀원 작업이 막히지 않도록 gateway 엔드포인트를 먼저 만듭니다)
-1. gateway: `POST /api/sessions`, QR SVG, `/api/config`, `session:{sid}` 키
-2. gateway: `/ws/pc/{sid}` — `landmarks`·`commands` 전달, PiP 켜기/끄기에 따른 `frames` 전달
-3. gateway: `/ws/mobile/{sid}` — 바이너리 프레임 수신 → `frames` publish → ack
-4. gateway: ping/pong 시계 차이 추정 (화면 표시는 3단계)
+1. ✅ gateway: `POST /api/sessions`, QR SVG, `/api/config`, `session:{sid}` 키
+2. ✅ gateway: `/ws/pc/{sid}` — `landmarks`·`commands` 전달, PiP 켜기/끄기에 따른 `frames` 전달
+3. ✅ gateway: `/ws/mobile/{sid}` — 바이너리 프레임 수신 → `frames` publish → ack
+4. ✅ gateway: ping/pong 시계 차이 추정 (화면 표시는 3단계)
 5. mobile: 카메라 페이지 (전면/후면 전환, 흐름 제어)
 6. canvas: QR 표시, PiP 패널(기본 꺼짐, 위치 변경)
+
+**gateway 단독 확인**(1~4): `python tools/ws_client.py` — 세션 생성 → PC(PiP 켬)+폰 역할로 왕복하고 status·ack·PiP·시계 추정을 OK/NG로 출력합니다.
 
 **확인 방법**: PC에서 QR 표시 → 폰으로 스캔 → PiP를 켜면 영상이 보이고, 끄면 PC 수신이 멈추는지 확인합니다. 폰 화면의 송신 fps와 버린 프레임 수도 확인합니다.
 

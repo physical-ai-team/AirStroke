@@ -12,6 +12,7 @@ from airstroke_shared import channels
 from airstroke_shared.log import get_logger
 from airstroke_shared.settings import redis_url
 
+from . import sessions, ws
 from .config import WATCHED_SERVICES, WEB_DIR
 
 log = get_logger("gateway")
@@ -21,11 +22,14 @@ def create_app(redis_client: aioredis.Redis | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.redis = redis_client or aioredis.Redis.from_url(redis_url())
+        app.state.hub = ws.Hub()
         log.info("startup", extra={"redis_url": redis_url(), "web_dir": str(WEB_DIR)})
         yield
         await app.state.redis.aclose()
 
     app = FastAPI(title="AirStroke gateway", lifespan=lifespan)
+    app.include_router(sessions.router)
+    app.include_router(ws.router)
 
     @app.get("/health")
     async def health():

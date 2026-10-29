@@ -60,6 +60,9 @@ cd services/vision ; python -m vision # gateway, gesture 도 같은 방식
 | `mock_landmarks.py` | 녹화/fixture JSON → `landmarks` 재생 (gesture 단독 개발) |
 | `mock_commands.py` | 가짜 `commands` 시나리오 (그림판 단독 개발) |
 | `gen_synthetic_landmarks.py` | `tests/fixtures/landmarks/` 합성 fixture 재생성 |
+| `ws_client.py` | 브라우저 없이 gateway WebSocket 확인. 기본은 세션 생성 → PC(PiP 켬)+폰 왕복 점검, `pc`/`mobile` 역할 단독 실행도 가능 |
+
+> gateway WebSocket(`/ws/pc`, `/ws/mobile`)은 `POST /api/sessions`로 만든 세션만 받습니다(모르는 세션은 close 4404). Redis에 직접 publish하는 도구는 아무 세션 ID나 쓸 수 있지만, 그림판·`ws_client.py`와 함께 쓸 때는 만든 세션 ID를 `--session`으로 넘깁니다.
 
 ## 테스트·린트
 ```powershell
