@@ -75,9 +75,9 @@ export function createPip({ stage, toolbar }) {
     enabled = !enabled;
     gen++;
     pending = null;
-    lastFrameAt = 0;
+    lastFrameAt = Date.now(); // "영상 없음"은 켠 뒤 STALE_MS 동안 프레임이 없을 때만
     vctx.clearRect(0, 0, view.width, view.height); // 다시 켤 때 옛 화면이 보이지 않게
-    empty.hidden = false;
+    empty.hidden = true;
     send();
     render();
   };
@@ -102,19 +102,25 @@ export function createPip({ stage, toolbar }) {
   // 디코드 중에 온 프레임은 최신 1장만 남긴다 (Zoom 과 같은 노트북이라 부하를 줄임)
   async function pump() {
     decoding = true;
-    while (pending) {
-      const { header, jpeg } = pending, myGen = gen;
-      pending = null;
-      let bmp;
-      try { bmp = await createImageBitmap(jpeg); } catch { continue; }
-      if (myGen === gen && enabled) {
-        draw(bmp, header.mirror === true);
-        lastFrameAt = Date.now();
-        empty.hidden = true;
+    try {
+      while (pending) {
+        const { header, jpeg } = pending, myGen = gen;
+        pending = null;
+        let bmp;
+        try { bmp = await createImageBitmap(jpeg); } catch { continue; }
+        try {
+          if (myGen === gen && enabled) {
+            draw(bmp, header.mirror === true);
+            lastFrameAt = Date.now();
+            empty.hidden = true;
+          }
+        } finally {
+          bmp.close();
+        }
       }
-      bmp.close();
+    } finally {
+      decoding = false; // 예외가 나도 다음 프레임부터 다시 그린다
     }
-    decoding = false;
   }
 
   setInterval(() => {
