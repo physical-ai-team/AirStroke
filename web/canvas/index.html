@@ -4,37 +4,37 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AirStroke 그림판</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; background: #111; color: #eee; }
-    pre { background: #222; padding: 1rem; border-radius: 8px; font-size: 1.1rem; }
-    .ok { color: #6f6; } .down { color: #f66; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- 1단계 임시 페이지: 헬스 상태만 표시. 2단계부터 조아람 담당 그림판 UI로 교체 -->
-  <h1>AirStroke — 1단계 헬스 상태</h1>
-  <ul id="services"></ul>
-  <pre id="raw">loading…</pre>
-  <script>
-    async function refresh() {
-      try {
-        const res = await fetch('/health');
-        const body = await res.json();
-        document.getElementById('raw').textContent = JSON.stringify(body, null, 2);
-        const list = document.getElementById('services');
-        list.innerHTML = '';
-        for (const [name, s] of Object.entries(body.services || {})) {
-          const li = document.createElement('li');
-          li.textContent = `${name}: ${s.alive ? 'alive' : 'down'}`;
-          li.className = s.alive ? 'ok' : 'down';
-          list.appendChild(li);
-        }
-      } catch (e) {
-        document.getElementById('raw').textContent = 'gateway 응답 없음: ' + e;
-      }
-    }
-    refresh();
-    setInterval(refresh, 2000);
-  </script>
+  <header>
+    <h1>AirStroke 그림판</h1>
+    <!-- 세션 흐름: 세션을 먼저 만들고, 그 ID를 도구에 --session 으로 넘긴다 -->
+    <span class="session">
+      <label>세션 <input id="sid" placeholder="세션 ID" autocomplete="off"></label>
+      <button id="create">새 세션 만들기</button>
+      <button id="connect">연결</button>
+      <a href="?mock=1">테스트 모드</a>
+    </span>
+    <button id="scenario" class="mock-only"></button>
+    <span><span id="dot" class="dot"></span> <span id="state">연결 안 됨</span></span>
+    <span id="stats"></span>
+  </header>
+  <nav id="toolbar">
+    <span id="palette"></span>
+    <label>굵기 <input id="width" type="range" min="1" max="24" value="4"> <output id="widthOut">4</output></label>
+    <button id="undo" title="Ctrl+Z">↶ 실행 취소</button>
+    <button id="clear">전체 지우기</button>
+    <button id="save" title="Ctrl+S">💾 PNG 저장</button>
+    <span id="hint"></span>
+  </nav>
+  <main id="stage">
+    <div id="board">
+      <canvas id="paint"></canvas>   <!-- 아래층: 그림 누적 (지우개·PNG 저장 대상) -->
+      <canvas id="overlay"></canvas> <!-- 위층: 커서·라벨, 매 프레임 다시 그림 -->
+      <div id="qr" hidden><img id="qrImg" alt="폰 접속 QR"><div>폰으로 스캔</div></div>
+    </div>
+  </main>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
