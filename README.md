@@ -16,7 +16,8 @@ PC(/canvas) ◀──WebSocket────┴───────────�
 | 폰 카메라 페이지 | 박민성 | `web/mobile/` |
 | PC 그림판 UI | 조아람 | `web/canvas/` |
 
-아키텍처, 메시지 스키마, 코딩 규칙, 담당 영역 규칙은 **[CLAUDE.md](CLAUDE.md)** 에 있습니다.
+기획·설계 문서는 **[docs/](docs/README.md)** 에 있습니다(개요, 아키텍처, 프로토콜, 제스처, UI, 로드맵, 팀 규칙, 개발 환경, 시연, 결정 기록).
+Claude Code가 따르는 작업 규칙은 [CLAUDE.md](CLAUDE.md)에 있습니다.
 
 ---
 

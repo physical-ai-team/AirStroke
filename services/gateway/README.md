@@ -7,7 +7,7 @@ FastAPI + WebSocket. 폰 카메라 페이지와 PC 그림판 페이지를 HTTPS(
 - `GET /health`: Redis ping + vision·gesture 하트비트 상태
 - (2단계) 세션 생성·QR(SVG) 발급, 폰 WebSocket(바이너리 JPEG) 수신, 흐름 제어(최대 2프레임 in-flight), ping/pong 시계 차이 추정
 - (2~3단계) PC WebSocket으로 `landmarks`·`commands` 전달. `frames`(PiP 영상)는 PC가 `{"type":"pip","enabled":true}`를 보낸 동안에만 전달하고, 기본값은 보내지 않음
-- 브라우저와 주고받는 메시지 형식: [CLAUDE.md §3-1](../../CLAUDE.md)
+- 브라우저와 주고받는 메시지 형식: [docs/03-protocol.md](../../docs/03-protocol.md)
 
 ## 입출력
 | 방향 | 채널 / 경로 | 비고 |
