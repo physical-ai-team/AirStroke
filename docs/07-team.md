@@ -28,6 +28,28 @@
 
 - **main에 직접 푸시하지 않습니다.** 모든 변경은 PR로 올리고 리뷰를 받습니다(GitHub 브랜치 보호 규칙으로 강제).
 
+## PR 제목·커밋 메시지
+[Conventional Commits](https://www.conventionalcommits.org/ko/v1.0.0/) 형식: `<type>(<scope>): <설명>` (설명은 한국어)
+
+| type | 용도 |
+|---|---|
+| `feat` | 새 기능 |
+| `fix` | 버그 수정 |
+| `docs` | 문서만 변경 |
+| `refactor` | 동작 변화 없는 구조 개선 |
+| `test` | 테스트 추가·수정 |
+| `perf` | 성능 개선 |
+| `chore` | 설정, 의존성, 빌드, 기타 |
+| `ci` | CI 설정 |
+
+- scope: `gateway`, `vision`, `gesture`, `mobile`, `canvas`, `shared`, `tools`, `infra`. 여러 영역에 걸치면 생략할 수 있습니다.
+- 예시
+  - `feat(vision): 세션별 HandLandmarker 추론 추가`
+  - `fix(mobile): 전면 카메라 mirror 플래그 누락 수정`
+  - `docs: 브라우저-gateway 계약 확정`
+  - `chore(vision): mediapipe 버전 갱신` ← "환경 갱신 필요"
+- main에는 **Squash and merge**로 합칩니다. PR 제목이 main 커밋 메시지가 되므로 PR 제목을 특히 규칙에 맞춥니다.
+
 ## PR
 - 템플릿: [.github/pull_request_template.md](../.github/pull_request_template.md)
 - 반드시 적을 것: 담당 영역 밖 변경 여부, **"환경 갱신 필요" 여부**, 실행·확인 방법

@@ -91,6 +91,11 @@ ruff check . ; ruff format .
 ## 6. Git / PR / 문서
 
 - 브랜치: `feat/gateway-*`, `feat/vision-*`, `feat/gesture-*`, `feat/mobile-*`, `feat/canvas-*`. **main에 직접 푸시하지 않는다.**
+- **PR 제목과 커밋 메시지는 `<type>(<scope>): <설명>` 형식**이다(Conventional Commits). 설명은 한국어로 쓴다.
+  - type: `feat`(기능) · `fix`(버그) · `docs`(문서) · `refactor` · `test` · `perf` · `chore`(설정·의존성·빌드) · `ci`
+  - scope: `gateway` · `vision` · `gesture` · `mobile` · `canvas` · `shared` · `tools` · `infra` (여러 영역이면 생략 가능)
+  - 예: `feat(gesture): 검지 펴짐 판별과 디바운스 추가`, `fix(canvas): stroke_id 변경 시 직선 생기는 문제 수정`
+  - main에는 **Squash and merge**로 합친다. PR 제목이 그대로 main의 커밋 메시지가 된다.
 - PR은 [.github/pull_request_template.md](.github/pull_request_template.md)를 채운다. 담당 밖 변경 여부, "환경 갱신 필요" 여부, 실행·확인 방법을 반드시 적는다.
 - 인터페이스(채널·스키마·설정·WebSocket 계약)가 바뀌면 서비스 README와 해당 `docs/` 문서도 함께 갱신한다(docs 수정은 팀장 리뷰).
 - 단계를 마치면 [docs/06-roadmap.md](docs/06-roadmap.md)의 진행 현황을 갱신한다.

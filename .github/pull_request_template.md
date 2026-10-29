@@ -1,3 +1,7 @@
+<!-- PR 제목 형식: <type>(<scope>): <설명>   예) feat(gesture): 검지 펴짐 판별 추가
+     type: feat | fix | docs | refactor | test | perf | chore | ci
+     scope: gateway | vision | gesture | mobile | canvas | shared | tools | infra  (docs/07-team.md) -->
+
 ## 요약
 <!-- 무엇을, 왜 바꿨는지 1~3줄 -->
 

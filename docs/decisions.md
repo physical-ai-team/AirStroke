@@ -17,6 +17,7 @@
 | D-011 | 2026-10-29 | 서비스 패키지 이름 | `gateway`/`vision`/`gesture` (`app` 대신) |
 | D-012 | 2026-10-29 | 그림판 시각 요소 | 손 뼈대 오버레이가 기본, PiP는 기본 꺼짐 + 꺼지면 미전송 |
 | D-013 | 2026-10-29 | 시연 성능 | 해상도·fps·`NUM_HANDS`·JPEG 품질을 `.env`로 조절 |
+| D-014 | 2026-10-29 | PR 제목·커밋 규칙 | Conventional Commits `<type>(<scope>): <설명>`, Squash and merge |
 
 ---
 
