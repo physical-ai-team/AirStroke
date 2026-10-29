@@ -15,6 +15,9 @@
 | 출력 | `landmarks:{sid}` | `LandmarksMsg` |
 | 하트비트 | `health:vision` | 통계(`processed`, `fps`, `dropped`) 포함 |
 
+## 주의: handedness
+MediaPipe는 입력이 셀카처럼 **좌우 반전된 이미지**라고 가정하고 `Left`/`Right`를 정합니다. vision은 원본 프레임을 반전하지 않고 넣으므로(좌표 원본 유지 규칙), `handedness`가 실제 손과 반대로 나올 수 있습니다. 값은 MediaPipe가 준 그대로 내보냅니다. 현재 gesture는 `handedness`를 쓰지 않습니다. 쓰게 되면 `mirror`와 카메라 방향을 고려해야 하므로 팀장과 계약을 먼저 정합니다.
+
 ## 단독 실행
 ```powershell
 docker compose up -d redis
