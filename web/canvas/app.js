@@ -1,11 +1,22 @@
-// AirStroke 그림판: gateway PC WebSocket(/ws/pc/{sid})으로 commands 를 받아 그린다.
-// 테스트 모드(?mock=1): gateway 없이 mock.js 의 시나리오·마우스 입력이 같은 handleCommand 로 들어온다.
+// AirStroke 그림판: gateway PC WebSocket(/ws/pc/{sid})으로 commands·landmarks 를 받아
+// 선을 그리고 손 뼈대를 겹쳐 보여준다.
+// 테스트 모드(?mock=1): gateway 없이 mock.js 의 시나리오·마우스 입력이 같은 처리 함수로 들어온다.
 
 const COLORS = ['#1a1a1a', '#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa'];
 const ERASER_WIDTH = 60; // CSS px
 const LABELS = { draw: '✏️ 그리기', move: '✌️ 이동', erase: '✋ 지우개', idle: '✊ 대기' };
 const RECONNECT_MAX_MS = 5000;
 const CLOSE_UNKNOWN_SESSION = 4404; // POST /api/sessions 로 만들지 않았거나 만료된 세션
+const HAND_TIMEOUT_MS = 500; // 이 시간 동안 landmarks 가 없으면 뼈대를 숨김
+// MediaPipe 21점 연결: 0 손목, 1-4 엄지, 5-8 검지, 9-12 중지, 13-16 약지, 17-20 소지
+const BONES = [
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  [5, 9], [9, 10], [10, 11], [11, 12],
+  [9, 13], [13, 14], [14, 15], [15, 16],
+  [13, 17], [0, 17], [17, 18], [18, 19], [19, 20],
+];
+const INDEX_TIP = 8;
 
 const $ = (id) => document.getElementById(id);
 const stage = $('stage'), board = $('board');
@@ -13,7 +24,8 @@ const paint = $('paint'), pctx = paint.getContext('2d');
 const overlay = $('overlay'), octx = overlay.getContext('2d');
 
 const pen = { color: COLORS[0], width: Number($('width').value) };
-let aspect = 4 / 3; // /api/config 의 카메라 비율로 덮어씀
+let aspect = 4 / 3; // 캔버스 비율 = /api/config 의 카메라 비율로 덮어씀
+let activeArea = 0.7; // /api/config 의 active_area 로 덮어씀
 
 // 브라우저 ↔ gateway 계약(docs/03-protocol.md)의 PC WebSocket 경로
 function wsUrl(sid) {
@@ -26,8 +38,31 @@ function wsUrl(sid) {
 const strokes = [];
 let current = null; // 그리는 중인 stroke
 let lastCmd = null; // 오버레이용 최신 명령
+let lastHands = null; // 오버레이용 최신 landmarks { hands, mirror, frameAspect, at }
 
 function toPx(p) { return [p.x * paint.width, p.y * paint.height]; }
+
+// 카메라 원본 좌표 → 캔버스 0~1. gesture 의 커서와 같은 식이어야 뼈대와 커서가 겹친다
+// (docs/04-gestures.md ⑤, services/gesture/gesture/core/mapping.py).
+// 단, 뼈대는 clamp 하지 않는다: 가장자리에서 손 모양이 납작해지지 않고 캔버스 밖으로 잘린다.
+function toCanvas(x, y, mirror, frameAspect) {
+  if (mirror) x = 1 - x;
+  let w = activeArea, h = activeArea;
+  if (frameAspect) {
+    w = activeArea * Math.min(1, aspect / frameAspect);
+    h = activeArea * Math.min(1, frameAspect / aspect);
+  }
+  return { x: (x - (1 - w) / 2) / w, y: (y - (1 - h) / 2) / h };
+}
+
+function handleLandmarks(msg) {
+  lastHands = {
+    hands: msg.hands || [],
+    mirror: !!msg.mirror,
+    frameAspect: msg.width && msg.height ? msg.width / msg.height : null,
+    at: performance.now(),
+  };
+}
 
 function applyStyle(s) {
   pctx.globalCompositeOperation = s.mode === 'erase' ? 'destination-out' : 'source-over';
@@ -100,9 +135,47 @@ function handleCommand(cmd) {
   current.points.push(p);
 }
 
+// 손 뼈대. move(펜 든 상태)는 흐리게, draw 는 검지 끝을 펜 색으로 강조
+function drawSkeleton(action) {
+  const lm = lastHands;
+  if (!lm || !lm.hands.length || performance.now() - lm.at > HAND_TIMEOUT_MS) return;
+  const dpr = devicePixelRatio;
+  octx.globalAlpha = action === 'move' ? 0.35 : 0.9;
+  octx.lineCap = 'round';
+  for (const hand of lm.hands) {
+    const pts = hand.points.map(([x, y]) => toPx(toCanvas(x, y, lm.mirror, lm.frameAspect)));
+    octx.strokeStyle = '#1f9d8a';
+    octx.lineWidth = 3 * dpr;
+    octx.beginPath();
+    for (const [a, b] of BONES) {
+      octx.moveTo(...pts[a]);
+      octx.lineTo(...pts[b]);
+    }
+    octx.stroke();
+    octx.fillStyle = '#ffffff';
+    octx.lineWidth = 2 * dpr;
+    for (const [x, y] of pts) {
+      octx.beginPath();
+      octx.arc(x, y, 4 * dpr, 0, Math.PI * 2);
+      octx.fill();
+      octx.stroke();
+    }
+    if (action === 'draw') {
+      const [x, y] = pts[INDEX_TIP];
+      octx.fillStyle = pen.color;
+      octx.beginPath();
+      octx.arc(x, y, 9 * dpr, 0, Math.PI * 2);
+      octx.fill();
+      octx.stroke();
+    }
+  }
+  octx.globalAlpha = 1;
+}
+
 function renderOverlay() {
   octx.clearRect(0, 0, overlay.width, overlay.height);
   const cmd = lastCmd;
+  drawSkeleton(cmd && cmd.action);
   if (cmd && cmd.cursor) {
     const dpr = devicePixelRatio;
     const [x, y] = toPx(cmd.cursor);
@@ -207,15 +280,17 @@ function connect(sid) {
     try { msg = JSON.parse(ev.data); } catch { return; }
     switch (msg.type) {
       case 'command': cmdCount++; handleCommand(msg.data); break;
+      case 'landmarks': handleLandmarks(msg.data); break;
       case 'ping':
         ws.send(JSON.stringify({ type: 'pong', id: msg.id, t_server: msg.t_server, t_client: Date.now() }));
         break;
       case 'status': $('qr').hidden = !!msg.mobile_connected; break;
-      // landmarks, clock 은 3단계(뼈대·지연시간 표시)에서 처리
+      // clock 은 지연시간 표시 때 처리
     }
   };
   ws.onclose = (ev) => {
-    lastCmd = null; // 끊긴 동안 마지막 커서·라벨이 남지 않게
+    lastCmd = null; // 끊긴 동안 마지막 커서·라벨·뼈대가 남지 않게
+    lastHands = null;
     current = null;
     $('qr').hidden = true;
     if (ev.code === CLOSE_UNKNOWN_SESSION) {
@@ -261,8 +336,10 @@ $('sid').onkeydown = (e) => { if (e.key === 'Enter') useSession($('sid').value);
 // ---------- 시작 ----------
 try {
   const res = await fetch('/api/config');
-  const cam = res.ok ? (await res.json()).camera : null;
+  const cfg = res.ok ? await res.json() : {};
+  const cam = cfg.camera;
   if (cam && cam.width && cam.height) aspect = cam.width / cam.height;
+  if (cfg.active_area) activeArea = cfg.active_area;
 } catch { /* gateway 없음 → 기본 4:3 */ }
 resize();
 
@@ -272,7 +349,11 @@ if (params.has('mock')) {
   setState('테스트 모드 (gateway 없음)', 'wait');
   $('hint').textContent = '왼쪽 드래그: 그리기 · 오른쪽 드래그: 지우개 · Ctrl+Z: 실행 취소';
   const { startMock } = await import('./mock.js');
-  startMock({ target: board, button: $('scenario'), onCommand: (cmd) => { cmdCount++; handleCommand(cmd); } });
+  startMock({
+    target: board, button: $('scenario'), activeArea,
+    onCommand: (cmd) => { cmdCount++; handleCommand(cmd); },
+    onLandmarks: handleLandmarks,
+  });
 } else {
   // URL ?s=<sid> (폰 페이지와 같은 파라미터) 가 있으면 그 세션으로, 없으면 새로 만들어 연결
   const initial = params.get('s') || params.get('sid');
