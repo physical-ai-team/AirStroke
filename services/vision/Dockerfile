@@ -18,9 +18,12 @@ RUN pip install --no-cache-dir -r shared/requirements.txt -r services/vision/req
 COPY shared shared
 RUN pip install --no-cache-dir --no-deps ./shared
 
-COPY services/vision/vision services/vision/vision
-
+# 모델은 코드보다 먼저 받아 레이어 캐시를 살린다 (model.py 가 바뀔 때만 다시 받음)
 WORKDIR /app/services/vision
+COPY services/vision/vision/model.py vision/model.py
+RUN python vision/model.py
+
+COPY services/vision/vision vision
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-m", "airstroke_shared.health", "vision"]
 CMD ["python", "-m", "vision"]

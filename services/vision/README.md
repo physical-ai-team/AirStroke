@@ -19,7 +19,9 @@
 ```powershell
 docker compose up -d redis
 docker compose stop vision                 # compose의 vision과 동시에 띄우지 않기
-cd services/vision ; python -m vision
+cd services/vision
+python vision/model.py                     # 최초 1회: models/hand_landmarker.task 받기 (해시 확인)
+python -m vision
 # 다른 터미널(레포 루트): 웹캠 프레임 흘려보내기
 python tools/stream_frames.py --show
 # 출력 확인 / 녹화
@@ -29,6 +31,10 @@ python tools/record_landmarks.py --duration 10
 
 ## 설정 (.env)
 `NUM_HANDS`(기본 1), `MIN_HAND_DETECTION_CONFIDENCE`, `MIN_HAND_PRESENCE_CONFIDENCE`, `MIN_TRACKING_CONFIDENCE`, `VISION_SESSION_IDLE_SEC`, `STATS_INTERVAL_SEC`
+
+## 모델
+- `hand_landmarker.task` float16 v1을 쓰고, URL과 SHA-256은 [model.py](vision/model.py)에 고정되어 있습니다. Docker는 빌드할 때 받고, 로컬은 위 명령으로 받습니다. 파일은 커밋하지 않습니다(`*.task`는 gitignore에 등록됨).
+- 시작할 때 모델이 없거나 해시가 다르면 vision이 바로 종료됩니다.
 
 ## 의존성 주의
 - OpenCV는 `opencv-contrib-python` 하나만 씁니다(MediaPipe 의존성). 다른 OpenCV 패키지를 추가하지 마세요.
