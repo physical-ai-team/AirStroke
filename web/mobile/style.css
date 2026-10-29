@@ -97,3 +97,10 @@ button {
 }
 button:disabled { opacity: 0.4; }
 button.secondary { background: #374151; }
+
+#btn-csv {
+  flex: none;
+  width: 100%;
+  min-height: 44px;
+  font-size: 15px;
+}

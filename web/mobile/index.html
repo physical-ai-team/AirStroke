@@ -22,15 +22,19 @@
       <div class="row"><span>송신 fps</span><b id="st-fps">0.0</b></div>
       <div class="row"><span>보낸 / 버린 프레임</span><b><span id="st-sent">0</span> / <span id="st-drop">0</span></b></div>
       <div class="row"><span>대기 중(ack 전)</span><b id="st-inflight">0</b></div>
-      <div class="row"><span>ack 왕복(평균)</span><b id="st-ack">-</b></div>
+      <div class="row"><span>ack 왕복 p50 / p95</span><b id="st-ack">-</b></div>
+      <div class="row"><span>프레임 크기 / 대역폭</span><b id="st-size">-</b></div>
+      <div class="row"><span>인코딩 시간(평균)</span><b id="st-encode">-</b></div>
       <div class="row"><span>시계 차이 / RTT</span><b id="st-clock">-</b></div>
       <div class="row"><span>화면 꺼짐 방지</span><b id="st-wake">-</b></div>
+      <div class="row"><span>측정 기록</span><b id="csv-rows">-</b></div>
     </section>
 
     <div id="controls">
       <button id="btn-start" type="button">카메라 시작</button>
       <button id="btn-flip" type="button" disabled>전면 / 후면 전환</button>
     </div>
+    <button id="btn-csv" type="button" class="secondary" disabled>측정 CSV 저장</button>
   </main>
   <canvas id="encoder" hidden></canvas>
   <script src="app.js"></script>

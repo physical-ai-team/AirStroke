@@ -7,6 +7,9 @@
 - 브랜치 `feat/mobile-camera` (origin에 push됨, **PR 없음, main 병합 없음**). 병합 전에는 팀 확인 필요.
 - 구현됨: 카메라 시작/전환, `/api/config` 수신, 바이너리 프레임 송신, 흐름 제어(inflight 2), ping→pong, clock 표시, Wake Lock, 재연결(0.5→5초), close 4404/4409 처리, 상태 패널.
 - 확인한 것: main 병합 후 `pytest` 57개·`ruff` 통과. 진짜 gateway 코드(fakeredis)에 `app.js`를 붙인 Node 하네스로 15fps·ack 1ms·4404·4409 확인.
+- 2026-10-29 오후(두 번째 PC) 추가: M-13 오류별 안내, M-14 카메라 방향 기억, M-25 ack 3초 타임아웃, M-26 백그라운드 일시정지·재개, M-42~44 프레임 크기·대역폭·인코딩 시간·ack p50/p95, **M-45 측정 CSV 저장**. Q3 해결(gateway는 publish 오류 시 연결을 닫음).
+  - 확인: headless Chrome(가짜 카메라) + 진짜 gateway(fakeredis)로 15fps, ack p50/p95 1/3ms, 7KB·105KB/s, 인코딩 8ms, 백그라운드 때 송신 0 → 복귀 시 재개, 새로고침 후 후면 유지, CSV 저장까지 확인. `ruff` 통과.
+  - `services/gateway/tests/test_ws.py::test_pip_frames_only_while_enabled`가 가끔 실패하거나 멈춘다 — **원래 main 코드에서도** 멈춤을 확인(팀장 영역, 내 변경은 JS·문서뿐). 팀장에게 알릴 것.
 - **확인 못 한 것**: 실제 폰 브라우저(카메라 권한, 전환, Wake Lock, 실제 Wi-Fi 수치), PC 그림판과의 통합(PiP). 측정값 아직 없음.
 
 ## 구조
@@ -20,10 +23,10 @@
 계약: `docs/03-protocol.md`(프레임 `[4B BE 헤더 길이][JSON {seq,capture_ts,mirror}][JPEG]`, ack, ping/pong/clock, close 4404/4409).
 
 ## 남은 일
-1. **실제 폰 시험** — 아래 "시험하는 법". 송신 fps, 버린 비율, ack 왕복, 전면/후면 전환, 화면 꺼짐 방지를 확인하고 숫자를 PRD 7절에 기록.
-2. PRD 보강 항목: M-13(오류 종류별 안내), M-14(마지막 카메라 방향 기억), M-26(백그라운드 탭 처리), M-42~44(프레임 크기·인코딩 시간·ack p50/p95), M-25(ack 타임아웃).
-3. 3단계: M-45 측정 CSV 내보내기, 기기×네트워크×설정 측정표(PRD 7.2).
-4. 팀장에게 물을 것(PRD 9절): Q1 세로 프레임 허용 여부, Q2 seq 규칙 명시, Q3 publish 오류 시 ack, Q6 포트 8443 충돌 안내.
+1. **실제 폰 시험** — 아래 "시험하는 법". 송신 fps, 버린 비율, ack 왕복, 전면/후면 전환, 화면 꺼짐 방지, **백그라운드 갔다 오기, 권한 거부 안내**를 확인. 폰에서 "측정 CSV 저장"으로 기록을 받아 둔다.
+2. 기기×네트워크×설정 측정표(PRD 7.2) — CSV를 이 폴더 `measurements/`에 모으고 요약은 `measurements.md`에.
+3. (5단계) M-46 시연 모드(통계 접기), M-47 배터리 표시.
+4. 팀장에게 물을 것(PRD 9절): Q1 세로 프레임 허용 여부, Q2 seq 규칙 명시, Q6 포트 8443 충돌 안내, gateway 테스트 멈춤(위 "현재 상태"). (Q3은 해결)
 5. main 병합이 필요해지면 **병합하지 말고 사용자에게 알려 팀 확인 메시지부터** 보낸다. PR 본문은 `.github/pull_request_template.md`, 제목은 `feat(mobile): …`.
 
 ## 시험하는 법
@@ -41,6 +44,8 @@ uvicorn.run(create_app(fr.FakeRedis()), host="0.0.0.0", port=int(sys.argv[1]),
 ```
 인증서: `openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 30 -subj "/CN=<IP>" -addext "subjectAltName=IP:<IP>,DNS:localhost"`. 서버 실행 후 `curl -k -X POST https://<IP>:9443/api/sessions` 로 세션을 만들면 응답의 `mobile_url`을 폰에서 연다(서버를 재시작하면 세션이 사라지니 다시 만든다). 폰에서 인증서 경고는 "고급 → 계속".
 
+**C. 폰 없이 브라우저 자동 확인**: B의 `run_gw.py`를 `127.0.0.1`·http(인증서 없이)로 띄우면 localhost는 보안 컨텍스트라 카메라가 허용된다. Chrome을 `--headless=new --use-fake-device-for-media-stream --use-fake-ui-for-media-stream --remote-debugging-port=9333`로 열고 CDP로 버튼 클릭·`state` 값을 확인한다(스크립트는 저장소 밖에 둔다).
+
 **gateway 단독 확인**: `python tools/ws_client.py` (팀장 도구, 세션 생성~왕복을 OK/NG로 출력).
 
 ## 교훈 / 함정
@@ -51,4 +56,5 @@ uvicorn.run(create_app(fr.FakeRedis()), host="0.0.0.0", port=int(sys.argv[1]),
 - 이 PC git 작성자: `msungaffa <msung1012@gmail.com>` — 새 PC는 저장소에서 `git config user.name/user.email` 설정 필요.
 
 ## 이 PC 고유 정보 (다른 PC에선 달라질 수 있음)
-- 저장소 `C:\dev\AirStroke`, LAN IP `192.168.0.7`, Python 3.11 `%LOCALAPPDATA%\Programs\Python\Python311`.
+- 첫 PC(`C:\Users\박민성`): 저장소 `C:\dev\AirStroke`, LAN IP `192.168.0.7`, Python 3.11 `%LOCALAPPDATA%\Programs\Python\Python311` + `.venv`.
+- 두 번째 PC(`C:\Users\박성빈`): 저장소 `C:\dev\AirStroke`. Miniforge가 `C:\miniforge3`라 한글 경로 문제 없이 **conda `airstroke` 환경 생성됨**(`C:\miniforge3\envs\airstroke\python.exe`). Docker 있음(아직 안 씀).

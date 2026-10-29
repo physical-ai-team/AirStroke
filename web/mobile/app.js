@@ -8,6 +8,8 @@
  *     헤더 {"seq", "capture_ts"(폰 시계 ms), "mirror"(전면 카메라면 true)}
  *   - ack 받지 않은 프레임이 max_inflight_frames 장이면 새 프레임은 버린다
  *   - ping 을 받으면 즉시 pong 으로 답한다(시계 동기화)
+ *   - 탭이 백그라운드로 가면 캡처를 멈추고, 돌아오면 다시 연다
+ *   - 1초마다 통계를 쌓아 "측정 CSV" 버튼으로 내려받는다(디바이스·네트워크 측정용)
  * 계약: docs/03-protocol.md "브라우저 ↔ gateway 계약", 요구사항: docs/05-ui.md
  *
  * 실행: gateway가 /mobile/ 로 서빙한다. PC 그림판의 QR을 폰으로 스캔하면 열린다.
@@ -29,13 +31,24 @@ const els = {
   drop: $('st-drop'),
   inflight: $('st-inflight'),
   ack: $('st-ack'),
+  size: $('st-size'),
+  encode: $('st-encode'),
   clock: $('st-clock'),
   wake: $('st-wake'),
+  btnCsv: $('btn-csv'),
+  csvRows: $('csv-rows'),
 };
 
 const RECONNECT_MAX_MS = 5000;
 const FPS_WINDOW_MS = 1000;
-const ACK_AVG_SAMPLES = 30;
+const ACK_SAMPLES = 100; // ack 왕복 p50/p95 계산에 쓰는 최근 개수
+const ENCODE_SAMPLES = 30; // 인코딩 시간 평균에 쓰는 최근 개수
+// ack가 이 시간 안에 안 오면 자리를 비운다(M-25). gateway는 형식이 틀린 프레임에 ack를 보내지 않고,
+// publish 오류면 연결을 닫는다(재연결 때 대기 목록을 비움). 정상 ack는 LAN에서 수십 ms라 넉넉히 잡았다.
+const ACK_TIMEOUT_MS = 3000;
+const LOG_INTERVAL_MS = 1000; // 측정 기록 간격
+const LOG_MAX_ROWS = 3600; // 1시간치. 넘으면 오래된 줄부터 버린다(메모리 제한)
+const FACING_KEY = 'airstroke.mobile.facing'; // 마지막 카메라 방향(localStorage)
 const CLOSE_UNKNOWN_SESSION = 4404; // 모르는(만료된) 세션
 const CLOSE_REPLACED = 4409; // 같은 세션에 새 폰이 접속해 밀려남
 
@@ -45,19 +58,78 @@ const state = {
   ws: null,
   reconnectMs: 500,
   stream: null,
-  facing: 'user', // 'user'(전면) | 'environment'(후면)
+  facing: loadFacing(), // 'user'(전면) | 'environment'(후면)
   mirror: true,
+  camSize: [0, 0], // 실제로 열린 카메라 해상도
   running: false,
+  paused: false, // 탭이 백그라운드라 잠시 멈춤(돌아오면 재개)
   timer: null,
   nextTick: 0,
   seq: 0,
   inflight: new Map(), // seq -> 보낸 시각(ms), ack 받으면 삭제
   sent: 0,
   dropped: 0,
-  sendTimes: [], // 최근 FPS_WINDOW_MS 안에 보낸 시각
+  ackTimeouts: 0,
+  sendLog: [], // 최근 FPS_WINDOW_MS 안에 보낸 프레임 {t, bytes}
   ackRtts: [],
+  encodeMs: [],
+  clock: null, // 마지막 clock 메시지 {offset_ms, rtt_ms}
   wakeLock: null,
+  log: [], // 측정 기록(1초 단위)
+  logStart: 0,
+  logLast: { sent: 0, dropped: 0, ackTimeouts: 0 },
 };
+
+// ---------- 카메라 방향 기억 (M-14) ----------
+// 사파리 사생활 보호 모드 등에서는 localStorage가 예외를 던지므로 실패해도 기본값으로 동작한다.
+
+function loadFacing() {
+  try {
+    const v = localStorage.getItem(FACING_KEY);
+    return v === 'environment' ? 'environment' : 'user';
+  } catch {
+    return 'user';
+  }
+}
+
+function saveFacing(facing) {
+  try {
+    localStorage.setItem(FACING_KEY, facing);
+  } catch {
+    /* 저장 못 해도 동작에는 지장 없음 */
+  }
+}
+
+// ---------- 통계 ----------
+
+function percentile(values, p) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
+}
+
+const mean = (values) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+
+function pushLimited(arr, value, limit) {
+  arr.push(value);
+  if (arr.length > limit) arr.shift();
+}
+
+/** 지금 시점의 통계 한 묶음. 화면 표시와 측정 기록이 같이 쓴다 */
+function snapshot() {
+  const now = performance.now();
+  while (state.sendLog.length && now - state.sendLog[0].t > FPS_WINDOW_MS) state.sendLog.shift();
+  const bytes = state.sendLog.reduce((a, f) => a + f.bytes, 0);
+  const n = state.sendLog.length;
+  return {
+    fps: (n * 1000) / FPS_WINDOW_MS,
+    kbPerFrame: n ? bytes / n / 1024 : null,
+    kbps: (bytes / 1024) * (1000 / FPS_WINDOW_MS),
+    encodeMs: mean(state.encodeMs),
+    ackP50: percentile(state.ackRtts, 50),
+    ackP95: percentile(state.ackRtts, 95),
+  };
+}
 
 // ---------- 화면 표시 ----------
 
@@ -72,20 +144,115 @@ function setConn(text, cls) {
 }
 
 function renderStats() {
-  const now = performance.now();
-  while (state.sendTimes.length && now - state.sendTimes[0] > FPS_WINDOW_MS) state.sendTimes.shift();
-  els.fps.textContent = ((state.sendTimes.length * 1000) / FPS_WINDOW_MS).toFixed(1);
+  const s = snapshot();
+  els.fps.textContent = s.fps.toFixed(1);
   els.sent.textContent = state.sent;
-  els.drop.textContent = state.dropped;
+  els.drop.textContent = state.ackTimeouts
+    ? `${state.dropped} (ack 없음 ${state.ackTimeouts})`
+    : state.dropped;
   els.inflight.textContent = state.config
     ? `${state.inflight.size} / ${state.config.max_inflight_frames}`
     : state.inflight.size;
-  if (state.ackRtts.length) {
-    const avg = state.ackRtts.reduce((a, b) => a + b, 0) / state.ackRtts.length;
-    els.ack.textContent = `${avg.toFixed(0)} ms`;
+  if (s.ackP50 !== null) els.ack.textContent = `${s.ackP50.toFixed(0)} / ${s.ackP95.toFixed(0)} ms`;
+  if (s.kbPerFrame !== null) {
+    els.size.textContent = `${s.kbPerFrame.toFixed(1)} KB / ${s.kbps.toFixed(0)} KB/s`;
   }
+  if (s.encodeMs !== null) els.encode.textContent = `${s.encodeMs.toFixed(0)} ms`;
 }
 setInterval(renderStats, 250);
+
+// ---------- 측정 기록 (M-45) ----------
+
+const LOG_COLUMNS = [
+  'time',
+  'elapsed_s',
+  'conn',
+  'state',
+  'camera',
+  'cam_w',
+  'cam_h',
+  'enc_w',
+  'enc_h',
+  'send_fps',
+  'sent',
+  'dropped',
+  'ack_timeouts',
+  'inflight',
+  'kb_per_frame',
+  'kb_per_s',
+  'encode_ms',
+  'ack_p50_ms',
+  'ack_p95_ms',
+  'clock_offset_ms',
+  'clock_rtt_ms',
+];
+
+function logTick() {
+  if (!state.running && !state.paused) return;
+  const s = snapshot();
+  const [encW, encH] = els.video.videoWidth ? encodeSize() : [0, 0];
+  const round = (v, d = 1) => (v === null || v === undefined ? '' : Number(v.toFixed(d)));
+  const row = {
+    time: new Date().toISOString(),
+    elapsed_s: state.log.length ? round((Date.now() - state.logStart) / 1000) : 0,
+    conn: state.ws?.readyState === WebSocket.OPEN ? 'open' : 'closed',
+    state: state.paused ? 'paused' : 'running',
+    camera: state.mirror ? 'front' : 'back',
+    cam_w: state.camSize[0],
+    cam_h: state.camSize[1],
+    enc_w: encW,
+    enc_h: encH,
+    send_fps: round(s.fps),
+    // 보냄·버림·ack 없음은 직전 기록 이후 늘어난 수(1초 동안의 개수)
+    sent: state.sent - state.logLast.sent,
+    dropped: state.dropped - state.logLast.dropped,
+    ack_timeouts: state.ackTimeouts - state.logLast.ackTimeouts,
+    inflight: state.inflight.size,
+    kb_per_frame: round(s.kbPerFrame),
+    kb_per_s: round(s.kbps),
+    encode_ms: round(s.encodeMs),
+    ack_p50_ms: round(s.ackP50),
+    ack_p95_ms: round(s.ackP95),
+    clock_offset_ms: round(state.clock?.offset_ms, 0),
+    clock_rtt_ms: round(state.clock?.rtt_ms, 0),
+  };
+  if (!state.log.length) state.logStart = Date.now();
+  state.logLast = { sent: state.sent, dropped: state.dropped, ackTimeouts: state.ackTimeouts };
+  pushLimited(state.log, row, LOG_MAX_ROWS);
+  els.csvRows.textContent = `${state.log.length}초`;
+  els.btnCsv.disabled = false;
+}
+setInterval(logTick, LOG_INTERVAL_MS);
+
+function csvCell(v) {
+  const s = String(v ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function downloadCsv() {
+  const cam = state.config?.camera ?? {};
+  // 맨 위 '#' 줄: 어떤 기기·설정으로 잰 것인지(시험 조합 구분용)
+  const meta = [
+    `# user_agent: ${navigator.userAgent}`,
+    `# screen: ${screen.width}x${screen.height} @${window.devicePixelRatio}`,
+    `# connection: ${navigator.connection?.effectiveType ?? '-'}`,
+    `# session: ${state.sid}`,
+    `# config: ${cam.width}x${cam.height} ${cam.fps}fps q${cam.jpeg_quality} ` +
+      `max_inflight=${state.config?.max_inflight_frames}`,
+  ];
+  const lines = [
+    ...meta,
+    LOG_COLUMNS.join(','),
+    ...state.log.map((r) => LOG_COLUMNS.map((c) => csvCell(r[c])).join(',')),
+  ];
+  const blob = new Blob([`${lines.join('\n')}\n`], { type: 'text/csv' });
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `airstroke-mobile-${stamp}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 
 // ---------- 설정 ----------
 
@@ -133,10 +300,10 @@ function connect() {
       const sentAt = state.inflight.get(msg.seq);
       if (sentAt !== undefined) {
         state.inflight.delete(msg.seq);
-        state.ackRtts.push(performance.now() - sentAt);
-        if (state.ackRtts.length > ACK_AVG_SAMPLES) state.ackRtts.shift();
+        pushLimited(state.ackRtts, performance.now() - sentAt, ACK_SAMPLES);
       }
     } else if (msg.type === 'clock') {
+      state.clock = msg;
       els.clock.textContent = `${msg.offset_ms.toFixed(0)} / ${msg.rtt_ms.toFixed(0)} ms`;
     }
   };
@@ -147,6 +314,7 @@ function connect() {
     // gateway가 정한 종료 코드(docs/03-protocol.md): 재접속해도 소용없거나 해로운 경우
     if (ev.code === CLOSE_UNKNOWN_SESSION || ev.code === CLOSE_REPLACED) {
       stopCapture();
+      state.paused = false;
       els.btnStart.disabled = true;
       setConn(ev.code === CLOSE_REPLACED ? '다른 폰이 연결됨' : '세션 없음', 'bad');
       showNotice(
@@ -181,12 +349,36 @@ async function openCamera() {
   // 실제로 열린 카메라 방향을 우선 사용(PC 웹캠 등은 facingMode가 없을 수 있음)
   const facing = settings.facingMode || state.facing;
   state.mirror = facing === 'user';
+  state.camSize = [settings.width ?? 0, settings.height ?? 0];
   els.video.srcObject = state.stream;
   els.video.classList.toggle('mirror', state.mirror);
   await els.video.play();
   els.cam.textContent =
     `${state.mirror ? '전면' : '후면'} ${settings.width ?? '?'}x${settings.height ?? '?'}` +
     (settings.frameRate ? ` @${Math.round(settings.frameRate)}` : '');
+}
+
+/** getUserMedia 오류를 사용자가 할 일로 바꿔 안내한다 (M-13) */
+function cameraErrorText(err) {
+  switch (err.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return (
+        '카메라 권한이 거부되었습니다.\n' +
+        '주소창의 자물쇠(또는 사이트 설정)에서 카메라를 "허용"으로 바꾼 뒤 새로고침하세요.'
+      );
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return '사용할 수 있는 카메라를 찾지 못했습니다.\n전면/후면 전환을 눌러 다른 카메라로 시도하세요.';
+    case 'NotReadableError':
+    case 'AbortError':
+      return (
+        '다른 앱이 카메라를 쓰고 있습니다.\n' +
+        '카메라·영상통화 앱(줌 등)을 닫고 다시 "카메라 시작"을 누르세요.'
+      );
+    default:
+      return `카메라를 열 수 없습니다: ${err.name}\n${err.message ?? ''}`;
+  }
 }
 
 /** 영상 비율을 유지하면서 설정 해상도(긴 변·짧은 변) 안에 맞춘 인코딩 크기 */
@@ -218,6 +410,15 @@ function captureFrame() {
   const ws = state.ws;
   if (!ws || ws.readyState !== WebSocket.OPEN || !els.video.videoWidth) return;
 
+  // ack가 너무 오래 안 온 프레임은 자리를 비운다(M-25). 안 그러면 송신이 영원히 멈춘다
+  const now = performance.now();
+  for (const [s, t] of state.inflight) {
+    if (now - t > ACK_TIMEOUT_MS) {
+      state.inflight.delete(s);
+      state.ackTimeouts += 1;
+    }
+  }
+
   // 흐름 제어: ack 대기가 꽉 차면 이번 프레임은 버린다
   if (state.inflight.size >= state.config.max_inflight_frames) {
     state.dropped += 1;
@@ -233,13 +434,15 @@ function captureFrame() {
   canvas.getContext('2d').drawImage(els.video, 0, 0, w, h);
 
   // 인코딩 중인 프레임도 자리를 차지하게 해 동시에 max_inflight_frames 장을 넘지 않게 한다
-  state.inflight.set(seq, performance.now());
+  state.inflight.set(seq, now);
   canvas.toBlob(
     async (blob) => {
       if (!blob || ws.readyState !== WebSocket.OPEN) {
         state.inflight.delete(seq);
         return;
       }
+      // 인코딩 시간 = 캡처(drawImage 직전) → toBlob 완료 (M-43, 저사양 폰 병목 확인)
+      pushLimited(state.encodeMs, performance.now() - now, ENCODE_SAMPLES);
       const frame = await encodeFrame({ seq, capture_ts: captureTs, mirror: state.mirror }, blob);
       if (ws.readyState !== WebSocket.OPEN) {
         state.inflight.delete(seq);
@@ -248,7 +451,7 @@ function captureFrame() {
       ws.send(frame);
       state.inflight.set(seq, performance.now()); // ack 왕복은 실제 송신 시점부터 잰다
       state.sent += 1;
-      state.sendTimes.push(performance.now());
+      state.sendLog.push({ t: performance.now(), bytes: frame.byteLength });
     },
     'image/jpeg',
     state.config.camera.jpeg_quality / 100,
@@ -287,12 +490,26 @@ async function requestWakeLock() {
   }
 }
 
-document.addEventListener('visibilitychange', () => {
-  // 다른 앱에 다녀오면 wake lock이 풀리므로 다시 요청한다
-  if (document.visibilityState === 'visible' && state.running) requestWakeLock();
-});
+// ---------- 시작·중지 ----------
 
-// ---------- 버튼 ----------
+async function startCapture() {
+  try {
+    await openCamera();
+  } catch (err) {
+    showNotice(cameraErrorText(err));
+    return false;
+  }
+  showNotice('');
+  state.running = true;
+  state.paused = false;
+  state.nextTick = performance.now();
+  loop();
+  requestWakeLock();
+  els.btnStart.textContent = '중지';
+  els.btnStart.classList.add('secondary');
+  els.btnFlip.disabled = false;
+  return true;
+}
 
 function stopCapture() {
   state.running = false;
@@ -306,25 +523,28 @@ function stopCapture() {
   els.cam.textContent = '-';
 }
 
+// 백그라운드 탭 처리 (M-26): 숨겨지면 카메라를 끄고(브라우저가 어차피 멈추거나 검은 화면을 줌),
+// 돌아오면 같은 방향으로 다시 연다. 다시 열면 wake lock도 다시 요청된다.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') {
+    if (state.running) {
+      stopCapture();
+      state.paused = true;
+      els.cam.textContent = '일시정지(백그라운드)';
+    }
+  } else if (state.paused) {
+    if (!(await startCapture())) state.paused = false;
+  }
+});
+
+// ---------- 버튼 ----------
+
 els.btnStart.addEventListener('click', async () => {
   if (state.running) {
     stopCapture();
     return;
   }
-  try {
-    await openCamera();
-  } catch (err) {
-    showNotice(`카메라를 열 수 없습니다: ${err.name}\n브라우저의 카메라 권한을 확인하세요.`);
-    return;
-  }
-  showNotice('');
-  state.running = true;
-  state.nextTick = performance.now();
-  loop();
-  requestWakeLock();
-  els.btnStart.textContent = '중지';
-  els.btnStart.classList.add('secondary');
-  els.btnFlip.disabled = false;
+  await startCapture();
 });
 
 els.btnFlip.addEventListener('click', async () => {
@@ -333,14 +553,18 @@ els.btnFlip.addEventListener('click', async () => {
   els.btnFlip.disabled = true;
   try {
     await openCamera();
+    saveFacing(state.facing);
+    showNotice('');
   } catch (err) {
     state.facing = prev;
-    showNotice(`카메라 전환 실패: ${err.name}`);
+    showNotice(cameraErrorText(err));
     await openCamera().catch(() => {});
   } finally {
     els.btnFlip.disabled = !state.running;
   }
 });
+
+els.btnCsv.addEventListener('click', downloadCsv);
 
 // ---------- 시작 ----------
 
