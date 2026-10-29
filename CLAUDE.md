@@ -62,7 +62,7 @@ pytest                                    # 레포 루트에서 전체 / pytest 
 ruff check . ; ruff format .
 ```
 - 서비스 단독 실행: `docker compose up -d redis`, `docker compose stop <svc>`를 한 뒤 `cd services/<svc>; python -m <svc>`로 실행한다.
-- 독립 개발 도구: `tools/mock_landmarks.py`(gesture용), `tools/mock_commands.py`(그림판용), `tools/stream_frames.py`(폰 없이 웹캠), `tools/record_landmarks.py`(녹화). 기본 세션은 `dev`.
+- 독립 개발 도구: `tools/mock_landmarks.py`(gesture용), `tools/mock_commands.py`(그림판용), `tools/stream_frames.py`(폰 없이 웹캠), `tools/record_landmarks.py`(녹화), `tools/ws_client.py`(브라우저 없이 gateway WebSocket 확인). 기본 세션은 `dev`(gateway WebSocket은 `POST /api/sessions`로 만든 세션만 받음).
 - 상세: [docs/08-dev-environment.md](docs/08-dev-environment.md)
 
 ## 4. 버전·환경 규칙
