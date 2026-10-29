@@ -2,6 +2,8 @@
 // 선을 그리고 손 뼈대를 겹쳐 보여준다.
 // 테스트 모드(?mock=1): gateway 없이 mock.js 의 시나리오·마우스 입력이 같은 처리 함수로 들어온다.
 
+import { createPip } from './pip.js';
+
 const COLORS = ['#1a1a1a', '#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa'];
 const ERASER_WIDTH = 60; // CSS px
 const LABELS = { draw: '✏️ 그리기', move: '✌️ 이동', erase: '✋ 지우개', idle: '✊ 대기' };
@@ -266,6 +268,7 @@ function setState(text, cls) {
 
 // ---------- WebSocket ----------
 let ws = null, wantSid = null, retryMs = 500, retryTimer = null;
+const pip = createPip({ stage, toolbar: $('toolbar') }); // 폰 카메라 PiP (pip.js)
 
 function connect(sid) {
   clearTimeout(retryTimer);
@@ -273,9 +276,9 @@ function connect(sid) {
   wantSid = sid;
   setState(`연결 중… (${sid})`, 'wait');
   ws = new WebSocket(wsUrl(sid));
-  ws.onopen = () => { retryMs = 500; setState(`연결됨 (${sid})`, 'ok'); };
+  ws.onopen = () => { retryMs = 500; setState(`연결됨 (${sid})`, 'ok'); pip.attach(ws); };
   ws.onmessage = (ev) => {
-    if (typeof ev.data !== 'string') return; // 바이너리 = PiP 영상 (다음 작업)
+    if (typeof ev.data !== 'string') { pip.onFrame(ev.data); return; } // 바이너리 = PiP 영상
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     switch (msg.type) {
