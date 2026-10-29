@@ -82,3 +82,19 @@ def test_real_landmarker_no_hand():
         assert out.hands == []
     finally:
         lm.close()
+
+
+@pytest.mark.parametrize(
+    ("max_width", "expected"),
+    [(None, (480, 640)), (640, (480, 640)), (320, (240, 320)), (256, (192, 256)), (100, (75, 100))],
+)
+def test_decode_jpeg_max_width(max_width, expected):
+    rgb = decode_jpeg(jpeg_b64(np.zeros((480, 640, 3), np.uint8)), max_width)
+    assert rgb.shape[:2] == expected
+
+
+def test_jpeg_width_from_header():
+    from vision.infer import _jpeg_width
+
+    buf = np.frombuffer(base64.b64decode(jpeg_b64(np.zeros((30, 123, 3), np.uint8))), np.uint8)
+    assert _jpeg_width(buf) == 123

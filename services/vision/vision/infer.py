@@ -24,17 +24,50 @@ class Processed:
     infer_ms: float
 
 
-def decode_jpeg(jpeg_base64: str) -> np.ndarray | None:
-    """base64 JPEG → RGB 배열. 깨진 데이터면 None."""
+# JPEG 를 1/2, 1/4, 1/8 크기로 바로 디코드하는 플래그 (전체 디코드 후 줄이는 것보다 싸다)
+_REDUCED = (
+    (8, cv2.IMREAD_REDUCED_COLOR_8),
+    (4, cv2.IMREAD_REDUCED_COLOR_4),
+    (2, cv2.IMREAD_REDUCED_COLOR_2),
+)
+
+
+def _jpeg_width(buf: np.ndarray) -> int | None:
+    """JPEG SOF 마커에서 가로 크기만 읽는다 (디코드 없이)."""
+    data = buf.tobytes()
+    i = 2
+    while i + 9 < len(data):
+        if data[i] != 0xFF:
+            return None
+        marker, length = data[i + 1], int.from_bytes(data[i + 2 : i + 4], "big")
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+            return int.from_bytes(data[i + 7 : i + 9], "big")
+        i += 2 + length
+    return None
+
+
+def decode_jpeg(jpeg_base64: str, max_width: int | None = None) -> np.ndarray | None:
+    """base64 JPEG → RGB 배열. 깨진 데이터면 None.
+
+    max_width 를 주면 가로가 그보다 넓을 때 비율을 유지하며 줄인다 (좌표는 0~1 정규화라 영향 없음).
+    """
     try:
         buf = np.frombuffer(base64.b64decode(jpeg_base64, validate=True), np.uint8)
     except (binascii.Error, ValueError):
         return None
     if buf.size == 0:
         return None
-    bgr = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+    flag = cv2.IMREAD_COLOR
+    if max_width:
+        width = _jpeg_width(buf)
+        if width:
+            flag = next((f for k, f in _REDUCED if width // k >= max_width), cv2.IMREAD_COLOR)
+    bgr = cv2.imdecode(buf, flag)
     if bgr is None:
         return None
+    if max_width and bgr.shape[1] > max_width:
+        h = round(bgr.shape[0] * max_width / bgr.shape[1])
+        bgr = cv2.resize(bgr, (max_width, h), interpolation=cv2.INTER_AREA)
     return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
@@ -61,10 +94,12 @@ def to_hands(result) -> list[Hand]:
     return hands
 
 
-def process(landmarker, jpeg_base64: str, ts_ms: int) -> Processed | None:
+def process(
+    landmarker, jpeg_base64: str, ts_ms: int, max_width: int | None = None
+) -> Processed | None:
     """디코드 + 추론. 디코드 실패면 None. 블로킹이므로 asyncio.to_thread 로 부를 것."""
     t0 = time.perf_counter()
-    rgb = decode_jpeg(jpeg_base64)
+    rgb = decode_jpeg(jpeg_base64, max_width)
     if rgb is None:
         return None
     t1 = time.perf_counter()

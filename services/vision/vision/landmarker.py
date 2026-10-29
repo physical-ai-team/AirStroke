@@ -85,8 +85,8 @@ class SessionLandmarkers(Generic[T]):
         return session_id in self._entries
 
 
-def create_landmarker():
-    """설정(.env)대로 CPU·VIDEO 모드 HandLandmarker 를 만든다."""
+def create_landmarker(num_hands: int | None = None):
+    """설정(.env)대로 CPU·VIDEO 모드 HandLandmarker 를 만든다. num_hands 는 벤치마크용 덮어쓰기."""
     from mediapipe.tasks.python import BaseOptions
     from mediapipe.tasks.python.vision import (
         HandLandmarker,
@@ -99,7 +99,7 @@ def create_landmarker():
             model_asset_path=str(MODEL_PATH), delegate=BaseOptions.Delegate.CPU
         ),
         running_mode=RunningMode.VIDEO,
-        num_hands=config.NUM_HANDS,
+        num_hands=num_hands or config.NUM_HANDS,
         min_hand_detection_confidence=config.MIN_HAND_DETECTION_CONFIDENCE,
         min_hand_presence_confidence=config.MIN_HAND_PRESENCE_CONFIDENCE,
         min_tracking_confidence=config.MIN_TRACKING_CONFIDENCE,
