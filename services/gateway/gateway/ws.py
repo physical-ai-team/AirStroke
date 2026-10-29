@@ -14,7 +14,8 @@ import asyncio
 import base64
 import contextlib
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
+from typing import Any
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -159,7 +160,27 @@ async def _cancel(*tasks: asyncio.Task | None) -> None:
     live = [t for t in tasks if t is not None]
     for t in live:
         t.cancel()
-    await asyncio.gather(*live, return_exceptions=True)
+    if not live:
+        return
+    # gather는 기다리는 쪽이 취소되면 하위 작업의 CancelledError를 대신 올려서, anyio cancel
+    # scope(테스트 클라이언트 등)가 자기 취소로 알아보지 못하고 밖으로 샌다. wait는 그대로 둔다.
+    await asyncio.wait(live)
+    for t in live:
+        if not t.cancelled():
+            t.exception()  # 예외를 꺼내 'never retrieved' 경고를 막는다
+
+
+_cleanups: set[asyncio.Task] = set()  # 실행 중인 정리 작업 (GC로 사라지지 않게 참조 유지)
+
+
+async def _run_cleanup(coro: Coroutine[Any, Any, None]) -> None:
+    """연결 정리를 끝까지 돌린다. 핸들러가 취소돼도(서버 종료, 테스트 클라이언트가 닫자마자
+    취소) 정리는 따로 마저 실행된다. 그냥 await하면 첫 await에서 끊겨 폰 목록·PC 상태 알림·
+    Redis 구독 해제가 빠진다."""
+    task = asyncio.ensure_future(coro)
+    _cleanups.add(task)
+    task.add_done_callback(_cleanups.discard)
+    await asyncio.shield(task)
 
 
 async def _close_pubsub(pubsub: PubSub) -> None:
@@ -241,14 +262,17 @@ async def ws_mobile(ws: WebSocket, sid: str) -> None:
         if isinstance(msg, Pong):
             await peer.on_pong(msg)
 
-    ping_task = asyncio.create_task(_ping_loop(peer, r))
-    try:
-        await _receive_loop(peer, on_frame, on_text)
-    finally:
+    async def cleanup() -> None:
         await _cancel(ping_task)
         if hub.remove_mobile(peer):
             await hub.broadcast_status(sid)
         log.info("mobile_disconnected", extra={"session": sid, "frames": stats.total})
+
+    ping_task = asyncio.create_task(_ping_loop(peer, r))
+    try:
+        await _receive_loop(peer, on_frame, on_text)
+    finally:
+        await _run_cleanup(cleanup())
 
 
 # ---------------------------------------------------------------- PC
@@ -324,13 +348,17 @@ async def ws_pc(ws: WebSocket, sid: str) -> None:
         asyncio.create_task(_forward_results(peer, results)),
         asyncio.create_task(_ping_loop(peer, r)),
     )
-    try:
-        await _receive_loop(peer, None, on_text)
-    finally:
-        await _cancel(*tasks)
-        await stop_pip()
-        await _close_pubsub(results)
+
+    async def cleanup() -> None:
         hub.pcs.get(sid, set()).discard(peer)
         if not hub.pcs.get(sid):
             hub.pcs.pop(sid, None)
+        await _cancel(*tasks)
+        await stop_pip()
+        await _close_pubsub(results)
         log.info("pc_disconnected", extra={"session": sid})
+
+    try:
+        await _receive_loop(peer, None, on_text)
+    finally:
+        await _run_cleanup(cleanup())

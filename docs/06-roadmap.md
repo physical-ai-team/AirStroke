@@ -5,9 +5,9 @@
 | 단계 | 내용 | 상태 |
 |---|---|---|
 | 1 | docker-compose 뼈대, 서비스 헬스체크, Redis 연결, shared 스키마, 개발 도구 | ✅ 완료 (2026-10-29) |
-| 2 | QR 페어링, 폰 → gateway 프레임 스트리밍, 시계 차이 추정, PC PiP 영상 | 🚧 진행 중 (canvas PiP 패널만 남음) |
-| 3 | vision 연동, PC에 손 뼈대·제스처 라벨 표시, 전체 지연시간 표시 | 🚧 vision 연동 완료, 뼈대·지연시간 표시 남음 |
-| 4 | gesture 연동, 검지로 그리기 | 🚧 실제 폰으로 그리기 확인, 시연 모드 등 남음 |
+| 2 | QR 페어링, 폰 → gateway 프레임 스트리밍, 시계 차이 추정, PC PiP 영상 | 🚧 구현 완료 (PiP #11), 실제 폰 최종 확인 남음 |
+| 3 | vision 연동, PC에 손 뼈대·제스처 라벨 표시, 전체 지연시간 표시 | 🚧 vision 연동·뼈대 오버레이(#10) 완료, 지연시간 표시 남음 |
+| 4 | gesture 연동, 검지로 그리기 | 🚧 실제 폰으로 그리기 확인, 상태별 표현(#10) 완료, 시연 모드 남음 |
 | 5 | 지우개, 색상 변경, 실행 취소, PNG 저장 | 🚧 그림판에 구현됨, 실제 손 확인 남음 |
 
 ---
@@ -37,8 +37,16 @@ pytest ; ruff check .
 2. ✅ gateway: `/ws/pc/{sid}` — `landmarks`·`commands` 전달, PiP 켜기/끄기에 따른 `frames` 전달
 3. ✅ gateway: `/ws/mobile/{sid}` — 바이너리 프레임 수신 → `frames` publish → ack
 4. ✅ gateway: ping/pong 시계 차이 추정 (화면 표시는 3단계)
-5. ✅ mobile: 카메라 페이지 (전면/후면 전환, 흐름 제어) — #8
-6. 🚧 canvas: QR 표시(✅ #6), PiP 패널(기본 꺼짐, 위치 변경) 남음
+5. ✅ mobile: 카메라 페이지 (전면/후면 전환, 흐름 제어) — 박민성, #8
+6. ✅ canvas: QR 표시 — 조아람, #6 / PiP 패널(기본 꺼짐, 모서리 이동, 크기 조절, mirror 반전) — 박민성, #11 (사전 합의로 박민성이 `web/canvas/pip.js`로 작업)
+
+**작업 기록**
+| 작업 | 담당 | PR |
+|---|---|---|
+| gateway 세션 API·WebSocket·시계 추정 | 김세광 | #2 |
+| 폰 카메라 페이지 | 박민성 | #8 |
+| 그림판 기본(2겹 캔버스, 세션 연결, 팔레트·굵기·실행 취소·PNG, 테스트 모드) | 조아람 | #6 |
+| PiP 패널 (`web/canvas/pip.js`, `pip.css`) | 박민성 (사전 합의) | #11 |
 
 **gateway 단독 확인**(1~4): `python tools/ws_client.py` — 세션 생성 → PC(PiP 켬)+폰 역할로 왕복하고 status·ack·PiP·시계 추정을 OK/NG로 출력합니다.
 
@@ -61,15 +69,18 @@ pytest ; ruff check .
 **확인 방법**: PC에서 QR 표시 → 폰으로 스캔 → PiP를 켜면 영상이 보이고, 끄면 PC 수신이 멈추는지 확인합니다. 폰 화면의 송신 fps와 버린 프레임 수도 확인합니다.
 
 ## 3단계 — 손 뼈대
-- vision: 세션별 `HandLandmarker`(VIDEO 모드), `NUM_HANDS`, 모델 파일은 Docker 빌드 때 받습니다.
-- canvas: 뼈대 오버레이(좌표 변환 적용), 제스처 라벨 자리, FPS·지연시간 표시(크게, 켜고 끌 수 있게)
+- ✅ vision: 세션별 `HandLandmarker`(VIDEO 모드), `NUM_HANDS`, 모델 파일은 Docker 빌드 때 받습니다. — 김정윤, #7
+- ✅ canvas: 뼈대 오버레이(좌표 변환 적용, D-018 세로 프레임 포함), 제스처 라벨 — 조아람, #10
+- canvas: FPS·지연시간 표시(크게, 켜고 끌 수 있게) 남음
 - **확인 방법**: `stream_frames.py`(웹캠)로 먼저 확인한 뒤 실제 폰으로 확인합니다. `record_landmarks.py`로 실제 손 fixture를 녹화합니다.
 
 ## 4단계 — 그리기
-- gesture: `core/`(판별·분류·디바운스·매핑·One Euro·stroke_id)와 pytest
-- canvas: draw 선 그리기, 상태별 표현(검지 끝 강조, move일 때 흐리게), 시연 모드
+- ✅ gesture: `core/`(판별·분류·디바운스·매핑·One Euro·stroke_id)와 pytest — 이기태, #5
+- ✅ canvas: draw 선 그리기(조아람, #6), 상태별 표현(검지 끝 강조, move일 때 흐리게 — 조아람, #10)
+- canvas: 시연 모드 남음
 - **확인 방법**: `pytest services/gesture`, `mock_landmarks.py`로 재생해 확인한 뒤 실제 손으로 그려 봅니다.
 
 ## 5단계 — 편집 기능
 - 지우개, 색상 변경, 실행 취소(stroke 단위), PNG 저장
+- 제스처 추가(D-019): 👌 집기 → 원형 팔레트 색 선택, 👍 엄지 세움 → 실행 취소(한 번만)
 - **확인 방법**: `mock_commands.py`와 실제 손으로 각각 확인합니다.

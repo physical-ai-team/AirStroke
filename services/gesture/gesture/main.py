@@ -27,6 +27,8 @@ log = get_logger("gesture")
 def load_params() -> GestureParams:
     return GestureParams(
         debounce_frames=config.DEBOUNCE_FRAMES,
+        undo_debounce_frames=config.UNDO_DEBOUNCE_FRAMES,
+        pinch_distance_ratio=config.PINCH_DISTANCE_RATIO,
         active_area=config.ACTIVE_AREA,
         one_euro_min_cutoff=config.ONE_EURO_MIN_CUTOFF,
         one_euro_beta=config.ONE_EURO_BETA,

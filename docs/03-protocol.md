@@ -28,9 +28,11 @@
 {"ts": 0, "seq": 0, "gesture": "index", "action": "draw",
  "cursor": {"x": 0.4, "y": 0.6}, "stroke_id": 3, "trace": {...}}
 ```
-- `gesture`: `index` | `index_middle` | `fist` | `palm` | `unknown` | `none`
-- `action`: `draw` | `move` | `idle` | `erase`
-- `cursor`: **캔버스 기준** 0~1입니다(반전·중앙영역 매핑 완료). 손이 없으면 `null`입니다.
+- `gesture`: `index` | `index_middle` | `fist` | `palm` | `pinch` | `thumb_up` | `unknown` | `none`
+- `action`: `draw` | `move` | `idle` | `erase` | `select` | `undo`
+  - `select`(`pinch`): 집고 있는 동안 매 프레임. 그림판은 시작 위치에 팔레트를 띄우고, `select`가 끝나는 순간 커서 방향의 색을 적용합니다.
+  - `undo`(`thumb_up`): **확정되는 순간 한 번만** 옵니다. 계속 엄지를 들고 있으면 `gesture="thumb_up"`, `action="idle"`입니다.
+- `cursor`: **캔버스 기준** 0~1입니다(반전·중앙영역 매핑 완료). 손이 없으면 `null`입니다. `pinch` 중에는 엄지·검지 끝의 가운데입니다.
 - `stroke_id`: draw가 새로 시작될 때마다 증가합니다. draw가 아니면 `null`입니다. PC는 값이 바뀌면 이전 좌표를 버리고 새 선을 시작합니다.
 
 ### `trace` (모든 메시지 공통, 모든 필드 Optional)

@@ -1,6 +1,7 @@
 import pytest
+from test_core_units import make_points, pinch_points, thumb_up_points
 
-from airstroke_shared.schemas import LandmarksMsg, Trace
+from airstroke_shared.schemas import Hand, LandmarksMsg, Trace
 from gesture.core import GestureParams, GestureSession
 
 
@@ -51,6 +52,39 @@ def test_scenario_stroke_ids(fixture_messages):
                                         "none"]  # fmt: skip
     assert [ids for g, ids in segments if g == "index"] == [{1}, {2}]
     assert all(ids == {None} for g, ids in segments if g != "index")
+
+
+def hand_msgs(points_fns, start_seq=0) -> list[LandmarksMsg]:
+    return [
+        LandmarksMsg(
+            ts=(start_seq + i) * 1000 / 15,
+            seq=start_seq + i,
+            hands=[Hand(handedness="Right", points=fn())],
+        )
+        for i, fn in enumerate(points_fns)
+    ]
+
+
+def test_undo_fires_once_per_thumb_up():
+    fist = lambda: make_points(set())  # noqa: E731
+    seq = [thumb_up_points] * 10 + [fist] * 4 + [thumb_up_points] * 8
+    actions = [c.action for c in run(hand_msgs(seq))]
+    # 6프레임 유지해야 확정되고, 들고 있는 동안은 다시 보내지 않는다
+    assert actions[:5] == ["idle"] * 5
+    assert actions[5] == "undo"
+    assert actions.count("undo") == 2
+    assert actions.index("undo", 6) == 14 + 5
+
+
+def test_pinch_selects_and_freezes_cursor_on_release():
+    seq = [pinch_points] * 8 + [lambda: make_points({"index"})] * 5
+    cmds = run(hand_msgs(seq))
+    assert [c.action for c in cmds[2:8]] == ["select"] * 6
+    last_select = cmds[7].cursor
+    # 손가락을 떼는 중(디바운스 2프레임)에는 아직 select 이고 커서는 마지막 집기 위치에 고정
+    assert [c.action for c in cmds[8:10]] == ["select", "select"]
+    assert cmds[8].cursor == last_select and cmds[9].cursor == last_select
+    assert cmds[10].action == "draw" and cmds[10].stroke_id == 1
 
 
 def test_portrait_frame_uses_aspect(fixture_messages):

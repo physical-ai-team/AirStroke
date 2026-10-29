@@ -6,7 +6,12 @@ import { createPip } from './pip.js';
 
 const COLORS = ['#1a1a1a', '#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa'];
 const ERASER_WIDTH = 60; // CSS px
-const LABELS = { draw: '✏️ 그리기', move: '✌️ 이동', erase: '✋ 지우개', idle: '✊ 대기' };
+const LABELS = {
+  draw: '✏️ 그리기', move: '✌️ 이동', erase: '✋ 지우개', idle: '✊ 대기', select: '👌 색 선택',
+};
+// 원형 팔레트(👌 집고 있는 동안): 반지름은 캔버스 짧은 변 대비, 가운데 원 안에서 놓으면 취소
+const PALETTE_RADIUS = 0.16, PALETTE_SWATCH = 0.055, PALETTE_DEADZONE = 0.35;
+const UNDO_FLASH_MS = 800;
 const RECONNECT_MAX_MS = 5000;
 const CLOSE_UNKNOWN_SESSION = 4404; // POST /api/sessions 로 만들지 않았거나 만료된 세션
 const HAND_TIMEOUT_MS = 500; // 이 시간 동안 landmarks 가 없으면 뼈대를 숨김
@@ -41,6 +46,8 @@ const strokes = [];
 let current = null; // 그리는 중인 stroke
 let lastCmd = null; // 오버레이용 최신 명령
 let lastHands = null; // 오버레이용 최신 landmarks { hands, mirror, frameAspect, at }
+let palette = null; // 집기 중 { anchor: 시작 커서(0~1), hover: 고른 색 번호 | null }
+let undoFlashUntil = 0; // 제스처 실행 취소 알림 표시 끝 시각
 
 function toPx(p) { return [p.x * paint.width, p.y * paint.height]; }
 
@@ -111,11 +118,51 @@ function resize() {
 }
 new ResizeObserver(resize).observe(stage);
 
+// ---------- 원형 팔레트 ----------
+// 집기를 시작한 자리에 색을 원형으로 펼치고, 손을 색 '방향'으로 움직이면 그 색이 골라진다.
+function paletteGeom() {
+  const s = Math.min(paint.width, paint.height);
+  const R = PALETTE_RADIUS * s, r = PALETTE_SWATCH * s, m = R + r * 1.4;
+  const clamp = (v, hi) => Math.min(Math.max(v, m), hi - m); // 팔레트가 캔버스 밖으로 안 나가게
+  const [x, y] = toPx(palette.anchor);
+  return { cx: clamp(x, paint.width), cy: clamp(y, paint.height), R, r };
+}
+
+function swatchAngle(i) { return -Math.PI / 2 + (i * 2 * Math.PI) / COLORS.length; }
+
+function paletteHover(p) {
+  const { cx, cy, R } = paletteGeom();
+  const [x, y] = toPx(p);
+  if (Math.hypot(x - cx, y - cy) < PALETTE_DEADZONE * R) return null; // 가운데 = 취소
+  const step = (2 * Math.PI) / COLORS.length;
+  const a = Math.atan2(y - cy, x - cx) + Math.PI / 2;
+  return ((Math.round(a / step) % COLORS.length) + COLORS.length) % COLORS.length;
+}
+
 // CommandMsg 하나 처리. draw 는 stroke_id 가 같으면 이어 긋고 바뀌면 새 선,
 // erase 는 연속된 erase 명령을 한 stroke 로 묶는다 (실행 취소 단위)
+// select 는 집고 있는 동안 팔레트를 띄우고 놓는 순간 색을 적용, undo 는 한 번만 온다
 function handleCommand(cmd) {
   lastCmd = cmd;
   const p = cmd.cursor;
+  if (cmd.action === 'select') {
+    current = null;
+    if (p) {
+      if (!palette) palette = { anchor: p, hover: null };
+      else palette.hover = paletteHover(p);
+    }
+    return;
+  }
+  if (palette) {
+    // 놓음 → 고른 색 적용. 손이 사라져서 끝난 것이면 적용하지 않는다
+    if (palette.hover !== null && cmd.gesture !== 'none') selectColor(COLORS[palette.hover]);
+    palette = null;
+  }
+  if (cmd.action === 'undo') {
+    undo();
+    undoFlashUntil = performance.now() + UNDO_FLASH_MS;
+    return;
+  }
   let key = null;
   if (cmd.action === 'draw' && cmd.stroke_id != null) key = `draw:${cmd.stroke_id}`;
   else if (cmd.action === 'erase') key = 'erase';
@@ -174,10 +221,51 @@ function drawSkeleton(action) {
   octx.globalAlpha = 1;
 }
 
+function drawPalette() {
+  const dpr = devicePixelRatio;
+  const { cx, cy, R, r } = paletteGeom();
+  octx.fillStyle = 'rgba(20, 20, 20, 0.35)';
+  octx.beginPath();
+  octx.arc(cx, cy, R + r * 1.4, 0, Math.PI * 2);
+  octx.fill();
+  // 가운데: 여기서 놓으면 취소
+  octx.strokeStyle = '#fff';
+  octx.lineWidth = 1.5 * dpr;
+  octx.setLineDash([4 * dpr, 4 * dpr]);
+  octx.beginPath();
+  octx.arc(cx, cy, PALETTE_DEADZONE * R, 0, Math.PI * 2);
+  octx.stroke();
+  octx.setLineDash([]);
+  COLORS.forEach((color, i) => {
+    const hover = palette.hover === i;
+    const a = swatchAngle(i);
+    octx.fillStyle = color;
+    octx.beginPath();
+    octx.arc(cx + R * Math.cos(a), cy + R * Math.sin(a), hover ? r * 1.35 : r, 0, Math.PI * 2);
+    octx.fill();
+    octx.lineWidth = (hover ? 4 : 1.5) * dpr;
+    octx.strokeStyle = hover ? '#fff' : 'rgba(255, 255, 255, 0.7)';
+    octx.stroke();
+  });
+}
+
+function drawUndoFlash() {
+  const dpr = devicePixelRatio;
+  const text = '↶ 실행 취소';
+  octx.font = `bold ${22 * dpr}px system-ui, sans-serif`;
+  const w = octx.measureText(text).width + 24 * dpr, h = 40 * dpr;
+  const x = (overlay.width - w) / 2, y = 16 * dpr;
+  octx.fillStyle = 'rgba(20, 20, 20, 0.75)';
+  octx.fillRect(x, y, w, h);
+  octx.fillStyle = '#fff';
+  octx.fillText(text, x + 12 * dpr, y + 28 * dpr);
+}
+
 function renderOverlay() {
   octx.clearRect(0, 0, overlay.width, overlay.height);
   const cmd = lastCmd;
   drawSkeleton(cmd && cmd.action);
+  if (palette) drawPalette();
   if (cmd && cmd.cursor) {
     const dpr = devicePixelRatio;
     const [x, y] = toPx(cmd.cursor);
@@ -191,25 +279,32 @@ function renderOverlay() {
     octx.globalAlpha = 1;
     octx.font = `${18 * dpr}px system-ui, sans-serif`;
     octx.fillStyle = '#222';
-    octx.fillText(LABELS[cmd.action] || cmd.action, x + r + 6 * dpr, y - r);
+    const label = cmd.gesture === 'thumb_up' ? '👍 실행 취소' : LABELS[cmd.action] || cmd.action;
+    octx.fillText(label, x + r + 6 * dpr, y - r);
   }
+  if (performance.now() < undoFlashUntil) drawUndoFlash();
   requestAnimationFrame(renderOverlay);
 }
 requestAnimationFrame(renderOverlay);
 
 // ---------- 툴바 ----------
+// 툴바 클릭과 제스처 팔레트가 같이 쓴다 (툴바의 선택 표시도 같이 바뀜)
+function selectColor(color) {
+  pen.color = color;
+  for (const el of document.querySelectorAll('.swatch')) {
+    el.classList.toggle('selected', el.title === color);
+  }
+}
+
 for (const color of COLORS) {
   const b = document.createElement('button');
   b.className = 'swatch';
   b.style.background = color;
   b.title = color;
-  b.onclick = () => {
-    pen.color = color;
-    for (const el of document.querySelectorAll('.swatch')) el.classList.toggle('selected', el === b);
-  };
+  b.onclick = () => selectColor(color);
   $('palette').append(b);
 }
-$('palette').firstChild.classList.add('selected');
+selectColor(COLORS[0]);
 
 $('width').oninput = (e) => {
   pen.width = Number(e.target.value);
@@ -295,6 +390,7 @@ function connect(sid) {
     lastCmd = null; // 끊긴 동안 마지막 커서·라벨·뼈대가 남지 않게
     lastHands = null;
     current = null;
+    palette = null;
     $('qr').hidden = true;
     if (ev.code === CLOSE_UNKNOWN_SESSION) {
       setState(`세션 ${sid} 이(가) 없거나 만료됨 — '새 세션 만들기'를 누르세요`, '');
@@ -350,7 +446,8 @@ const params = new URLSearchParams(location.search);
 if (params.has('mock')) {
   document.body.classList.add('mock');
   setState('테스트 모드 (gateway 없음)', 'wait');
-  $('hint').textContent = '왼쪽 드래그: 그리기 · 오른쪽 드래그: 지우개 · Ctrl+Z: 실행 취소';
+  $('hint').textContent =
+    '왼쪽 드래그: 그리기 · 오른쪽 드래그: 지우개 · 가운데 버튼 드래그: 색 선택(👌) · U: 실행 취소(👍)';
   const { startMock } = await import('./mock.js');
   startMock({
     target: board, button: $('scenario'), activeArea,
