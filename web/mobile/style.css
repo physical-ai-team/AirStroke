@@ -57,6 +57,8 @@ main {
   line-height: 1.5;
   background: rgba(0, 0, 0, 0.8);
 }
+/* display:flex 가 hidden 속성을 덮어써서 안내가 없을 때도 검은 막이 미리보기를 덮던 문제 방지 */
+#notice[hidden] { display: none; }
 
 #stats {
   background: var(--panel);
