@@ -15,8 +15,8 @@ PC(/canvas) ◀──WebSocket────┴───────────�
 | 공통 스키마·개발 도구·인프라 (`shared/`, `tools/`, compose) | 김세광 | [docs/02-architecture.md](docs/02-architecture.md), [docs/08-dev-environment.md](docs/08-dev-environment.md) |
 | vision (MediaPipe, CPU) | 김정윤 | [services/vision/README.md](services/vision/README.md) |
 | gesture (제스처 분류) | 이기태 | [services/gesture/README.md](services/gesture/README.md) |
-| 폰 카메라 페이지 | 박민성 | `web/mobile/` |
-| PC 그림판 UI | 조아람 | `web/canvas/` |
+| 폰 카메라 페이지, 디바이스·네트워크 테스트, 지연시간·FPS 측정 | 박민성 | `web/mobile/` — 요구사항 [docs/05-ui.md](docs/05-ui.md#폰-카메라-페이지--webmobile-박민성), 계약 [docs/03-protocol.md](docs/03-protocol.md) |
+| PC 그림판 UI | 조아람 | `web/canvas/` — 요구사항 [docs/05-ui.md](docs/05-ui.md#pc-그림판--webcanvas-조아람), 계약 [docs/03-protocol.md](docs/03-protocol.md) |
 
 기획·설계 문서는 **[docs/](docs/README.md)** 에 있습니다(개요, 아키텍처, 프로토콜, 제스처, UI, 로드맵, 팀 규칙, 개발 환경, 시연, 결정 기록).
 Claude Code가 따르는 작업 규칙은 [CLAUDE.md](CLAUDE.md)에 있습니다.
@@ -73,14 +73,16 @@ ruff check . ; ruff format .
 ## 4. 독립 개발 도구 (`tools/`)
 
 conda 환경에서 레포 루트 기준으로 실행합니다. Redis가 떠 있어야 합니다(`docker compose up -d redis`). 기본 세션 ID는 `dev`입니다.
+단, gateway WebSocket(그림판·폰 페이지, `ws_client.py`)은 `POST /api/sessions`로 만든 세션만 받으므로, 함께 쓸 때는 그 세션 ID를 `--session`으로 넘깁니다.
 
 | 명령 | 용도 |
 |---|---|
 | `python tools/stream_frames.py [--source 0 \| 영상.mp4] [--show]` | 폰 없이 웹캠·영상 → `frames` |
 | `python tools/record_landmarks.py --duration 10` | vision 출력 → `recordings/*.json` |
 | `python tools/mock_landmarks.py [--file ...] [--loop]` | 랜드마크 JSON 재생 → `landmarks` (gesture 단독 개발) |
-| `python tools/mock_commands.py` | 가짜 `commands` (그림판 UI 단독 개발) |
+| `python tools/mock_commands.py [--session <sid>]` | 가짜 `commands` (그림판 UI 단독 개발) |
 | `python tools/gen_synthetic_landmarks.py` | `tests/fixtures/landmarks/` 합성 fixture 재생성 |
+| `python tools/ws_client.py [pc \| mobile] [--session <sid>]` | 브라우저 없이 gateway WebSocket 확인. 인자 없이 실행하면 세션 생성 → PC+폰 왕복 점검(OK/NG) |
 
 Docker Desktop(Windows) 컨테이너에서는 웹캠을 쓸 수 없으므로, 웹캠 테스트는 반드시 로컬에서 `stream_frames.py`로 합니다.
 
