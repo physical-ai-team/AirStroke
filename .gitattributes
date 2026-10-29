@@ -1,0 +1,17 @@
+* text=auto
+
+# Windows에서 개발하더라도 컨테이너 안에서 실행되는 파일은 LF로 고정
+*.sh text eol=lf
+Dockerfile text eol=lf
+**/Dockerfile text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+.env.example text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.webm binary
+*.task binary

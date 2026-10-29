@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AirStroke 그림판</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; background: #111; color: #eee; }
+    pre { background: #222; padding: 1rem; border-radius: 8px; font-size: 1.1rem; }
+    .ok { color: #6f6; } .down { color: #f66; }
+  </style>
+</head>
+<body>
+  <!-- 1단계 임시 페이지: 헬스 상태만 표시. 2단계부터 조아람 담당 그림판 UI로 교체 -->
+  <h1>AirStroke — 1단계 헬스 상태</h1>
+  <ul id="services"></ul>
+  <pre id="raw">loading…</pre>
+  <script>
+    async function refresh() {
+      try {
+        const res = await fetch('/health');
+        const body = await res.json();
+        document.getElementById('raw').textContent = JSON.stringify(body, null, 2);
+        const list = document.getElementById('services');
+        list.innerHTML = '';
+        for (const [name, s] of Object.entries(body.services || {})) {
+          const li = document.createElement('li');
+          li.textContent = `${name}: ${s.alive ? 'alive' : 'down'}`;
+          li.className = s.alive ? 'ok' : 'down';
+          list.appendChild(li);
+        }
+      } catch (e) {
+        document.getElementById('raw').textContent = 'gateway 응답 없음: ' + e;
+      }
+    }
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

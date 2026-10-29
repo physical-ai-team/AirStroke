@@ -1,0 +1,22 @@
+# 레포 공통 도구 설정 (패키지 버전은 여기 적지 않는다)
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["airstroke_shared", "gateway", "vision", "gesture"]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "shared/tests",
+    "services/gateway/tests",
+    "services/vision/tests",
+    "services/gesture/tests",
+    "tools/tests",
+]
+pythonpath = ["services/gateway", "services/vision", "services/gesture", "tools"]
+addopts = "-q"

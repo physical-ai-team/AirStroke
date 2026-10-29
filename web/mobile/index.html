@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AirStroke 카메라</title>
+  <style>body { font-family: system-ui, sans-serif; margin: 1.5rem; }</style>
+</head>
+<body>
+  <!-- 1단계 임시 페이지. 2단계에서 박민성 담당 카메라 페이지로 교체 -->
+  <h1>AirStroke 카메라</h1>
+  <p id="secure"></p>
+  <script>
+    document.getElementById('secure').textContent = window.isSecureContext
+      ? 'HTTPS 연결 OK — 2단계에서 카메라 스트리밍이 추가됩니다.'
+      : 'HTTPS가 아닙니다. 카메라를 쓰려면 https:// 로 접속하세요.';
+  </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+# 실행: docker compose up -d --build   /   상태: docker compose ps
+# 모든 서비스는 레포 루트를 빌드 컨텍스트로 써서 shared/ 를 함께 복사한다.
+name: airstroke
+
+x-service-common: &service-common
+  env_file:
+    - path: .env
+      required: false
+  restart: unless-stopped
+  depends_on:
+    redis:
+      condition: service_healthy
+
+services:
+  redis:
+    image: redis:7.4.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    # 로컬(conda) 도구 접속용. LAN에는 노출하지 않도록 127.0.0.1 에만 바인딩
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  gateway:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      CERT_DIR: /certs
+      GATEWAY_PORT: "8443"  # 컨테이너 내부 포트는 고정, 호스트 포트만 .env 로 변경
+    ports:
+      - "${GATEWAY_PORT:-8443}:8443"
+    volumes:
+      - ./certs:/certs:ro
+      - ./web:/app/web:ro  # 프론트 수정은 브라우저 새로고침만으로 반영
+
+  vision:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: services/vision/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+
+  gesture:
+    <<: *service-common
+    build:
+      context: .
+      dockerfile: services/gesture/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0

@@ -1,0 +1,6 @@
+# vision 전용 의존성 (pydantic, redis 는 shared/requirements.txt)
+mediapipe==1.2.0
+# mediapipe가 opencv-contrib-python 에 의존하므로 레포 전체에서 이 OpenCV 하나만 쓴다.
+# opencv-python / opencv-python-headless 를 추가하지 말 것 (cv2 충돌)
+opencv-contrib-python==5.0.0.93
+numpy==2.4.6

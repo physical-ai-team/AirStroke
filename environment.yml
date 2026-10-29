@@ -1,0 +1,17 @@
+# 로컬 개발용 conda 환경. 패키지 버전은 여기 적지 않는다 — 기준은 각 requirements.txt 뿐.
+#   최초 생성:  conda env create -f environment.yml
+#   갱신:       conda env update -f environment.yml --prune
+name: airstroke
+channels:
+  - conda-forge
+dependencies:
+  # Dockerfile의 python:3.11-slim-bookworm 과 동일한 마이너 버전
+  - python=3.11
+  - pip
+  - pip:
+      - -r shared/requirements.txt
+      - -r services/gateway/requirements.txt
+      - -r services/vision/requirements.txt
+      - -r services/gesture/requirements.txt
+      - -r requirements-dev.txt
+      - -e ./shared
