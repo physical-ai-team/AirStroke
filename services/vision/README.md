@@ -38,4 +38,4 @@ python tools/record_landmarks.py --duration 10
 
 ## 의존성 주의
 - OpenCV는 `opencv-contrib-python` 하나만 씁니다(MediaPipe 의존성). 다른 OpenCV 패키지를 추가하지 마세요.
-- Docker 이미지에는 `libgl1`, `libglib2.0-0`, `libportaudio2`가 필요합니다(MediaPipe를 import할 때 sounddevice를 불러옴).
+- Docker 이미지에는 `libgl1`, `libglib2.0-0`, `libportaudio2`(MediaPipe를 import할 때 sounddevice를 불러옴), `libegl1`, `libgles2`(MediaPipe Tasks가 CPU 전용이어도 링크함)가 필요합니다.

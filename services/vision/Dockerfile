@@ -6,8 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # opencv-contrib-python: libGL, glib / mediapipe가 import 시 sounddevice를 불러옴: PortAudio
+# mediapipe tasks(libmediapipe.so)는 CPU 전용이어도 EGL·GLESv2를 링크함: libegl1, libgles2
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 libportaudio2 \
+    && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 libportaudio2 libegl1 libgles2 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
