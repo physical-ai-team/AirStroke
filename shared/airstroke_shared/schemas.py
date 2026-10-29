@@ -67,8 +67,9 @@ class LandmarksMsg(_Msg):
     trace: Trace = Field(default_factory=Trace)
 
 
-Gesture = Literal["index", "index_middle", "fist", "palm", "unknown", "none"]
-Action = Literal["draw", "move", "idle", "erase"]
+Gesture = Literal["index", "index_middle", "fist", "palm", "pinch", "thumb_up", "unknown", "none"]
+# select: 집고 있는 동안 매 프레임(그림판 팔레트), undo: thumb_up이 확정되는 순간 한 번만
+Action = Literal["draw", "move", "idle", "erase", "select", "undo"]
 
 
 class Cursor(_Msg):

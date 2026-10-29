@@ -113,24 +113,36 @@ export function startMock({ target, button, activeArea, onCommand, onLandmarks }
   }
   button.onclick = () => play(!timer);
 
-  // 마우스: 왼쪽 드래그 = 그리기, 오른쪽 드래그 = 지우개, 버튼 없이 움직이면 = 이동
+  // 마우스: 왼쪽 드래그 = 그리기, 오른쪽 드래그 = 지우개, 가운데 드래그 = 집기(색 선택),
+  // 버튼 없이 움직이면 = 이동. 키보드 U = 엄지 세움(실행 취소, 한 번만 보냄)
   const norm = (e) => {
     const r = target.getBoundingClientRect();
     const clamp = (v) => Math.min(1, Math.max(0, v));
     return { x: clamp((e.clientX - r.left) / r.width), y: clamp((e.clientY - r.top) / r.height) };
   };
   target.addEventListener('contextmenu', (e) => e.preventDefault());
+  target.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); }); // 자동 스크롤 막기
   target.addEventListener('pointerdown', (e) => {
     play(false);
     target.setPointerCapture(e.pointerId);
     if (e.button === 0) emit('index', 'draw', norm(e), true);
     else if (e.button === 2) emit('palm', 'erase', norm(e), false);
+    else if (e.button === 1) { e.preventDefault(); emit('pinch', 'select', norm(e), false); }
   });
   target.addEventListener('pointermove', (e) => {
     if (timer) return;
     if (e.buttons & 1) emit('index', 'draw', norm(e), false);
     else if (e.buttons & 2) emit('palm', 'erase', norm(e), false);
+    else if (e.buttons & 4) emit('pinch', 'select', norm(e), false);
     else emit('index_middle', 'move', norm(e), false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'u' || e.repeat || e.ctrlKey || e.target.tagName === 'INPUT') return;
+    play(false);
+    emit('thumb_up', 'undo', { x: 0.5, y: 0.5 }, false);
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'u' && !timer) emit('fist', 'idle', { x: 0.5, y: 0.5 }, false);
   });
   target.addEventListener('pointerup', (e) => { if (!timer) emit('index_middle', 'move', norm(e), false); });
   target.addEventListener('pointerleave', () => { if (!timer) emit('none', 'idle', null, false); });

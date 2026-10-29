@@ -5,7 +5,7 @@ import pytest
 from airstroke_shared.schemas import Hand
 from gesture.core.classify import ACTIONS, classify, select_hand
 from gesture.core.debounce import Debouncer
-from gesture.core.fingers import extended_fingers
+from gesture.core.fingers import extended_fingers, is_pinch, is_thumb_up
 from gesture.core.mapping import to_canvas
 from gesture.core.one_euro import OneEuroFilter
 
@@ -19,7 +19,58 @@ def make_points(extended: set[str]) -> list[list[float]]:
     for name, (tip, pip, x) in columns.items():
         pts[pip] = [x, 0.6, 0.0]
         pts[tip] = [x, 0.4 if name in extended else 0.75, 0.0]
+    # 엄지: 옆으로 누운 상태(MCP 2 → IP 3 → TIP 4). 집기도 엄지 세움도 아님
+    pts[2], pts[3], pts[4] = [0.35, 0.7, 0.0], [0.28, 0.7, 0.0], [0.2, 0.7, 0.0]
     return pts
+
+
+def pinch_points() -> list[list[float]]:
+    """검지를 내밀고 엄지 끝을 검지 끝에 붙인 손."""
+    pts = make_points({"index"})
+    pts[4] = [pts[8][0] + 0.03, pts[8][1] + 0.02, 0.0]
+    return pts
+
+
+def thumb_up_points() -> list[list[float]]:
+    """네 손가락은 접고 엄지만 위로 세운 손."""
+    pts = make_points(set())
+    pts[2], pts[3], pts[4] = [0.4, 0.45, 0.0], [0.4, 0.3, 0.0], [0.4, 0.2, 0.0]
+    return pts
+
+
+def test_pinch_and_thumb_up():
+    ratio = 0.35
+    assert is_pinch(pinch_points(), ratio)
+    assert not is_pinch(make_points({"index"}), ratio)  # 엄지가 멂
+    # 주먹: 엄지가 검지에 붙어 있어도 검지 끝이 손바닥 안이라 집기가 아님
+    fist = make_points(set())
+    fist[4] = [fist[8][0] + 0.02, fist[8][1], 0.0]
+    assert not is_pinch(fist, ratio)
+
+    assert is_thumb_up(thumb_up_points())
+    assert not is_thumb_up(make_points(set()))  # 엄지가 옆으로 누움
+    tucked = make_points(set())  # 엄지를 세웠지만 검지 뿌리에 붙여 감싸 쥠
+    tucked[2], tucked[3], tucked[4] = [0.42, 0.62, 0.0], [0.45, 0.56, 0.0], [0.48, 0.52, 0.0]
+    assert not is_thumb_up(tucked)
+
+
+@pytest.mark.parametrize(
+    ("points", "gesture"),
+    [
+        (pinch_points, "pinch"),  # 검지가 펴져 있어도 집기가 우선
+        (thumb_up_points, "thumb_up"),
+        (lambda: make_points(set()), "fist"),
+    ],
+)
+def test_classify_thumb_gestures(points, gesture):
+    pts = points()
+    found = classify(extended_fingers(pts), pinch=is_pinch(pts, 0.35), thumb_up=is_thumb_up(pts))
+    assert found == gesture
+
+
+def test_thumb_up_needs_folded_fingers():
+    # 엄지를 세웠어도 다른 손가락이 펴져 있으면 thumb_up 이 아니다
+    assert classify(frozenset({"index"}), thumb_up=True) == "index"
 
 
 @pytest.mark.parametrize(
@@ -44,6 +95,8 @@ def test_actions_table():
     assert ACTIONS["index_middle"] == "move"
     assert ACTIONS["fist"] == "idle"
     assert ACTIONS["palm"] == "erase"
+    assert ACTIONS["pinch"] == "select"
+    assert ACTIONS["thumb_up"] == "undo"
     assert ACTIONS["unknown"] == "idle"
     assert ACTIONS["none"] == "idle"
 
@@ -84,6 +137,12 @@ def test_debounce_single_glitch_is_ignored():
     assert d.update("index") == "index"
     assert d.update("unknown") == "index"
     assert d.update("unknown") == "index"  # 앞의 glitch는 index로 끊겼으므로 아직 2회
+
+
+def test_debounce_per_gesture_frames():
+    d = Debouncer(3, per_gesture={"thumb_up": 6})
+    assert [d.update("thumb_up") for _ in range(6)][-2:] == ["none", "thumb_up"]
+    assert [d.update("fist") for _ in range(3)][-1] == "fist"  # 다른 제스처는 3프레임
 
 
 def test_mapping_center_mirror_and_clamp():
