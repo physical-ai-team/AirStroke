@@ -7,6 +7,7 @@
 | `index.html` | 미리보기, 상태 표시, 시작·전환 버튼 |
 | `app.js` | 설정 수신, WebSocket, 캡처·인코딩·흐름 제어, ping/pong, Wake Lock |
 | `style.css` | 화면 스타일 |
+| `OVERVIEW.md` | 코드 구조 요약, 성능·정확도 개선 방법 |
 
 ## 동작
 - URL `?s={sid}`로 세션을 받습니다. 세션이 없거나 HTTPS가 아니면 안내 문구를 보여줍니다.

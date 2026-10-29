@@ -22,6 +22,7 @@
 | `app.js` | 설정·WebSocket·캡처·인코딩·흐름 제어·시계 응답·Wake Lock |
 | `PRD.md` | 요구사항(M-xx), 측정 계획, 팀장에게 물을 질문 |
 | `README.md` | 동작 요약, 확인 방법 |
+| `OVERVIEW.md` | 코드 구조 요약, 성능·정확도 개선 방법과 추천 순서 |
 
 계약: `docs/03-protocol.md`(프레임 `[4B BE 헤더 길이][JSON {seq,capture_ts,mirror}][JPEG]`, ack, ping/pong/clock, close 4404/4409).
 
