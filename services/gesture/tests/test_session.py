@@ -53,6 +53,15 @@ def test_scenario_stroke_ids(fixture_messages):
     assert all(ids == {None} for g, ids in segments if g != "index")
 
 
+def test_portrait_frame_uses_aspect(fixture_messages):
+    msgs = fixture_messages("gesture_index.json")
+    landscape = run(msgs)[-1].cursor  # width/height 없음 = 가로 4:3과 같음
+    portrait = run([m.model_copy(update={"width": 480, "height": 640}) for m in msgs])[-1].cursor
+    # 세로는 중앙 영역이 납작해져서 같은 점이라도 y가 중앙에서 더 멀어진다
+    assert portrait != landscape
+    assert abs(portrait.y - 0.5) >= abs(landscape.y - 0.5)
+
+
 def test_mirror_flips_cursor(fixture_messages):
     msgs = fixture_messages("gesture_index.json")
     mirrored = run(msgs)[-1].cursor

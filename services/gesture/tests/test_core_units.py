@@ -94,6 +94,25 @@ def test_mapping_center_mirror_and_clamp():
     assert to_canvas(0.3, 0.4, False, 1.0) == pytest.approx((0.3, 0.4))
 
 
+def test_mapping_keeps_aspect():
+    canvas = 4 / 3
+    # 가로 4:3 프레임은 비율을 안 줄 때와 같다
+    assert to_canvas(0.2, 0.7, False, 0.7, 4 / 3, canvas) == pytest.approx(
+        to_canvas(0.2, 0.7, False, 0.7)
+    )
+    # 세로 3:4 프레임: 가로는 0.7 전체, 세로는 0.7 * (3/4)/(4/3) = 0.39375 만 쓴다
+    h = 0.7 * (3 / 4) / (4 / 3)
+    portrait = (3 / 4, canvas)
+    assert to_canvas(0.15, 0.5 - h / 2, False, 0.7, *portrait) == pytest.approx((0.0, 0.0))
+    assert to_canvas(0.85, 0.5 + h / 2, False, 0.7, *portrait) == pytest.approx((1.0, 1.0))
+    # 같은 거리를 움직이면 캔버스 px로도 가로·세로 같은 거리 (원이 타원이 되지 않음)
+    d = 0.05
+    x0, y0 = to_canvas(0.5, 0.5, False, 0.7, *portrait)
+    x1, _ = to_canvas(0.5 + d, 0.5, False, 0.7, *portrait)
+    _, y1 = to_canvas(0.5, 0.5 + d * 3 / 4, False, 0.7, *portrait)  # 프레임 px 기준 같은 거리
+    assert (x1 - x0) * canvas == pytest.approx(y1 - y0)
+
+
 def test_one_euro_first_value_passthrough_and_reset():
     f = OneEuroFilter(1.0, 0.007, 1.0)
     assert f(0.3, 0.0) == 0.3

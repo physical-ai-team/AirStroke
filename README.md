@@ -124,6 +124,8 @@ GUI로 하려면: `Windows 보안` → `방화벽 및 네트워크 보호` → `
 | 도구 실행 시 `Redis 연결 실패` | `docker compose up -d redis`를 실행하고, `.env`의 `REDIS_URL`과 `REDIS_HOST_PORT`를 확인하세요 |
 | `cv2` import 오류 / 이상 동작 | OpenCV 패키지가 섞였습니다. `pip list \| findstr opencv` 결과가 `opencv-contrib-python` 하나여야 합니다 |
 | 줄바꿈 때문에 컨테이너 스크립트 오류 | `.gitattributes`가 LF를 강제합니다. `git add --renormalize .`를 실행하세요 |
+| `docker compose up` 때 8443 포트가 이미 사용 중 | 다른 프로그램이 8443을 쓰고 있습니다(예: 리그 오브 레전드 클라이언트). `netstat -ano \| findstr :8443`로 PID를 확인해 그 프로그램을 끄거나, `.env`의 `GATEWAY_PORT`를 바꾼 뒤 `docker compose up -d` 하세요. 포트를 바꾸면 방화벽 규칙과 폰 주소의 포트도 함께 바꿉니다 |
+| 지연시간·시계 offset이 수백 ms 어긋남 | Docker(WSL2) VM 시계가 Windows 시계보다 밀렸습니다(절전 복귀 후 자주 발생). `wsl --shutdown` 후 Docker Desktop을 다시 시작하세요 |
 
 ---
 

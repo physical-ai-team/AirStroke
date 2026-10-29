@@ -31,6 +31,7 @@ def load_params() -> GestureParams:
         one_euro_min_cutoff=config.ONE_EURO_MIN_CUTOFF,
         one_euro_beta=config.ONE_EURO_BETA,
         one_euro_d_cutoff=config.ONE_EURO_D_CUTOFF,
+        canvas_aspect=config.CANVAS_ASPECT,
     )
 
 

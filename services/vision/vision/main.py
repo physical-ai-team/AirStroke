@@ -82,6 +82,8 @@ async def work(
             ts=frame.ts,
             seq=frame.seq,
             mirror=frame.mirror,
+            width=frame.width,
+            height=frame.height,
             hands=out.hands,
             trace=frame.trace.model_copy(update={"vision_done": done}),
         )
