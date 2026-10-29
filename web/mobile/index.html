@@ -2,18 +2,37 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111">
   <title>AirStroke 카메라</title>
-  <style>body { font-family: system-ui, sans-serif; margin: 1.5rem; }</style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- 1단계 임시 페이지. 2단계에서 박민성 담당 카메라 페이지로 교체 -->
-  <h1>AirStroke 카메라</h1>
-  <p id="secure"></p>
-  <script>
-    document.getElementById('secure').textContent = window.isSecureContext
-      ? 'HTTPS 연결 OK — 2단계에서 카메라 스트리밍이 추가됩니다.'
-      : 'HTTPS가 아닙니다. 카메라를 쓰려면 https:// 로 접속하세요.';
-  </script>
+  <!-- 폰 카메라 페이지 (박민성). 계약: docs/03-protocol.md, 요구사항: docs/05-ui.md -->
+  <main>
+    <div id="preview">
+      <video id="video" autoplay playsinline muted></video>
+      <div id="notice" hidden></div>
+    </div>
+
+    <section id="stats" aria-live="polite">
+      <div class="row"><span>연결</span><b id="st-conn" class="bad">끊김</b></div>
+      <div class="row"><span>세션</span><b id="st-sid">-</b></div>
+      <div class="row"><span>카메라</span><b id="st-cam">-</b></div>
+      <div class="row"><span>송신 fps</span><b id="st-fps">0.0</b></div>
+      <div class="row"><span>보낸 / 버린 프레임</span><b><span id="st-sent">0</span> / <span id="st-drop">0</span></b></div>
+      <div class="row"><span>대기 중(ack 전)</span><b id="st-inflight">0</b></div>
+      <div class="row"><span>ack 왕복(평균)</span><b id="st-ack">-</b></div>
+      <div class="row"><span>시계 차이 / RTT</span><b id="st-clock">-</b></div>
+      <div class="row"><span>화면 꺼짐 방지</span><b id="st-wake">-</b></div>
+    </section>
+
+    <div id="controls">
+      <button id="btn-start" type="button">카메라 시작</button>
+      <button id="btn-flip" type="button" disabled>전면 / 후면 전환</button>
+    </div>
+  </main>
+  <canvas id="encoder" hidden></canvas>
+  <script src="app.js"></script>
 </body>
 </html>

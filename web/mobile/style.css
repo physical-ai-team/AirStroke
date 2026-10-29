@@ -1,0 +1,99 @@
+:root {
+  --bg: #111;
+  --fg: #eee;
+  --muted: #999;
+  --panel: #1d1d1d;
+  --ok: #4ade80;
+  --warn: #facc15;
+  --bad: #f87171;
+  --accent: #3b82f6;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+}
+
+#preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 55vh;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+#video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 전면 카메라는 사용자가 보기 자연스럽게 미리보기만 좌우 반전(전송 프레임은 원본) */
+#video.mirror { transform: scaleX(-1); }
+
+#notice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+#stats {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-size: 15px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid #2a2a2a;
+}
+.row:last-child { border-bottom: none; }
+.row span { color: var(--muted); }
+.row b { font-variant-numeric: tabular-nums; text-align: right; }
+
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.bad { color: var(--bad); }
+
+#controls {
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  flex: 1;
+  min-height: 52px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+button:disabled { opacity: 0.4; }
+button.secondary { background: #374151; }
