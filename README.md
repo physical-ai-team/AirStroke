@@ -11,6 +11,8 @@ PC(/canvas) ◀──WebSocket────┴───────────�
 | 서비스 | 담당 | 문서 |
 |---|---|---|
 | gateway (FastAPI, HTTPS) | 김세광 | [services/gateway/README.md](services/gateway/README.md) |
+| redis (pub/sub, 세션·하트비트 키) | 김세광 | [docs/03-protocol.md](docs/03-protocol.md) (채널·키), [docker-compose.yml](docker-compose.yml) |
+| 공통 스키마·개발 도구·인프라 (`shared/`, `tools/`, compose) | 김세광 | [docs/02-architecture.md](docs/02-architecture.md), [docs/08-dev-environment.md](docs/08-dev-environment.md) |
 | vision (MediaPipe, CPU) | 김정윤 | [services/vision/README.md](services/vision/README.md) |
 | gesture (제스처 분류) | 이기태 | [services/gesture/README.md](services/gesture/README.md) |
 | 폰 카메라 페이지 | 박민성 | `web/mobile/` |
