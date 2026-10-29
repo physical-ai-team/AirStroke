@@ -12,6 +12,7 @@
   - `services/gateway/tests/test_ws.py::test_pip_frames_only_while_enabled`가 가끔 실패하거나 멈춘다 — **원래 main 코드에서도** 멈춤을 확인(팀장 영역, 내 변경은 JS·문서뿐). 팀장에게 알릴 것.
 - **실제 폰 시험 1차 (2026-10-29, Galaxy, 학교 Wi-Fi)**: 연결·전면/후면·15fps 송신 확인, 버린 비율 0.8~2.7%, ack p95 34~50ms → 기준 통과(PRD 7.4). 미리보기가 어둡던 버그(`#notice` 검은 막이 hidden이어도 덮음) 수정 `580d342`. 브라우저 카메라는 정상 노출이었음(ISO 50, 밝은 형광등).
 - 2026-10-29 (세 번째 세션): main(#6 그림판, #7 vision) 병합 — 충돌 없음. **M-46 시연 모드·M-47 배터리** 구현. headless Chrome(가짜 카메라)+fakeredis gateway로 시연 모드 중 14~15fps 송신 유지, 새로고침 후 유지, CSV에 배터리 열 확인. 폰에서는 아직 안 봄.
+  - 병합 전 점검: main 대비 뒤처짐 0, `pytest` 103 통과(1 skip)·`ruff` 통과. 브라우저 통합: 그림판 "새 세션" → QR 표시 → 폰 페이지 15fps 송신 → QR 숨김, 두 번째 폰 접속 시 첫 폰 4409 안내 확인(headless, fakeredis).
 - **확인 못 한 것**: 백그라운드 복귀·권한 거부 안내·Wake Lock·CSV 저장을 폰에서 따로 확인 안 함, 기종 기록, PC 그림판과의 통합(PiP).
 
 ## 구조
