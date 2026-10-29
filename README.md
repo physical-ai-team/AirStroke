@@ -11,12 +11,11 @@ PC(/canvas) ◀──WebSocket────┴───────────�
 | 서비스 | 담당 | 문서 |
 |---|---|---|
 | gateway (FastAPI, HTTPS) | 김세광 | [services/gateway/README.md](services/gateway/README.md) |
-| redis (pub/sub, 세션·하트비트 키) | 김세광 | [docs/03-protocol.md](docs/03-protocol.md) (채널·키), [docker-compose.yml](docker-compose.yml) |
-| 공통 스키마·개발 도구·인프라 (`shared/`, `tools/`, compose) | 김세광 | [docs/02-architecture.md](docs/02-architecture.md), [docs/08-dev-environment.md](docs/08-dev-environment.md) |
+| redis, 공통 (`shared/`, `tools/`, compose) | 김세광 | [docs/02-architecture.md](docs/02-architecture.md) |
 | vision (MediaPipe, CPU) | 김정윤 | [services/vision/README.md](services/vision/README.md) |
 | gesture (제스처 분류) | 이기태 | [services/gesture/README.md](services/gesture/README.md) |
-| 폰 카메라 페이지, 디바이스·네트워크 테스트, 지연시간·FPS 측정 | 박민성 | `web/mobile/` — 요구사항 [docs/05-ui.md](docs/05-ui.md#폰-카메라-페이지--webmobile-박민성), 계약 [docs/03-protocol.md](docs/03-protocol.md) |
-| PC 그림판 UI | 조아람 | `web/canvas/` — 요구사항 [docs/05-ui.md](docs/05-ui.md#pc-그림판--webcanvas-조아람), 계약 [docs/03-protocol.md](docs/03-protocol.md) |
+| 폰 카메라 페이지 | 박민성 | `web/mobile/`, [docs/05-ui.md](docs/05-ui.md) |
+| PC 그림판 UI | 조아람 | `web/canvas/`, [docs/05-ui.md](docs/05-ui.md) |
 
 기획·설계 문서는 **[docs/](docs/README.md)** 에 있습니다(개요, 아키텍처, 프로토콜, 제스처, UI, 로드맵, 팀 규칙, 개발 환경, 시연, 결정 기록).
 Claude Code가 따르는 작업 규칙은 [CLAUDE.md](CLAUDE.md)에 있습니다.
