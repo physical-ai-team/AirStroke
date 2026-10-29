@@ -2,10 +2,38 @@ import struct
 
 import pytest
 
-from gateway.protocol import MobileFrameHeader, Pip, Pong, pack_frame, parse_client_text
+from gateway.protocol import (
+    MobileFrameHeader,
+    Pip,
+    Pong,
+    jpeg_size,
+    pack_frame,
+    parse_client_text,
+)
 from gateway.protocol import unpack_mobile_frame as unpack
 
 JPEG = b"\xff\xd8fake-jpeg\xff\xd9"
+
+
+def jpeg_header(width: int, height: int, sof: int = 0xC0) -> bytes:
+    """SOI + APP0(JFIF) + SOFn 까지만 있는 JPEG 앞부분 (크기 읽기 테스트용)."""
+    app0 = b"\xff\xe0" + struct.pack(">H", 16) + b"JFIF\x00" + bytes(9)
+    sof_seg = bytes([0xFF, sof]) + struct.pack(">HBHHB", 11, 8, height, width, 1) + bytes(3)
+    return b"\xff\xd8" + app0 + sof_seg
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        (jpeg_header(640, 480), (640, 480)),
+        (jpeg_header(480, 640), (480, 640)),  # 폰 세로
+        (jpeg_header(640, 360, sof=0xC2), (640, 360)),  # progressive
+        (JPEG, None),
+        (b"\xff\xd8", None),
+    ],
+)
+def test_jpeg_size(data, expected):
+    assert jpeg_size(data) == expected
 
 
 def test_pack_unpack_roundtrip():

@@ -5,7 +5,7 @@
 ## 역할과 규칙
 - **최신 프레임만 처리**: 구독 루프가 세션별 슬롯 하나를 계속 덮어쓰고([latest.py](vision/latest.py)), 추론 루프는 그 슬롯에서 꺼냅니다. 추론이 밀리면 중간 프레임은 버려지고, 버린 수는 `dropped` 통계로 남깁니다.
 - **세션별 HandLandmarker 인스턴스**: VIDEO 모드는 타임스탬프가 단조 증가해야 하므로 세션마다 따로 만듭니다. `VISION_SESSION_IDLE_SEC` 동안 프레임이 없으면 해제합니다. (3단계)
-- 좌표는 **카메라 원본 기준**(반전·매핑 전)으로 내보냅니다. 반전과 매핑은 gesture가 담당합니다. 받은 `mirror`와 `trace`는 그대로 넘기고 `trace.vision_done`만 채웁니다.
+- 좌표는 **카메라 원본 기준**(반전·매핑 전)으로 내보냅니다. 반전과 매핑은 gesture가 담당합니다. 받은 `mirror`·`width`·`height`와 `trace`는 그대로 넘기고 `trace.vision_done`만 채웁니다.
 - MediaPipe 1.x에는 `mp.solutions`가 없습니다. `mediapipe.tasks.python.vision`만 사용합니다.
 
 ## 입출력

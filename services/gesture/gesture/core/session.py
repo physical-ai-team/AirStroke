@@ -25,6 +25,8 @@ class GestureParams:
     one_euro_min_cutoff: float = 1.0
     one_euro_beta: float = 0.007
     one_euro_d_cutoff: float = 1.0
+    # 그림판 비율 = CAMERA_WIDTH / CAMERA_HEIGHT (그림판도 /api/config 로 같은 값을 씀)
+    canvas_aspect: float = 640 / 480
 
 
 class GestureSession:
@@ -66,7 +68,15 @@ class GestureSession:
         if hand is not None:
             # 커서는 디바운스와 관계없이 매 프레임 갱신
             tip = hand.points[INDEX_TIP]
-            x, y = to_canvas(tip[0], tip[1], msg.mirror, self.params.active_area)
+            frame_aspect = msg.width / msg.height if msg.width and msg.height else None
+            x, y = to_canvas(
+                tip[0],
+                tip[1],
+                msg.mirror,
+                self.params.active_area,
+                frame_aspect,
+                self.params.canvas_aspect,
+            )
             fx, fy = self._filters
             cursor = Cursor(x=fx(x, msg.ts), y=fy(y, msg.ts))
 

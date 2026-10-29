@@ -24,7 +24,7 @@ FastAPI + WebSocket. 폰 카메라 페이지와 PC 그림판 페이지를 HTTPS(
 | 방향 | 채널 / 경로 | 비고 |
 |---|---|---|
 | 입력 | 폰 WebSocket | `[4B 길이][JSON 헤더][JPEG]` |
-| 출력 | `frames:{sid}` | `FrameMsg`, `trace.capture`(환산, 첫 추정 전에는 null), `trace.gw_recv` 채움 |
+| 출력 | `frames:{sid}` | `FrameMsg`, `trace.capture`(환산, 첫 추정 전에는 null), `trace.gw_recv`, `width`·`height`(JPEG 헤더에서 읽음) 채움 |
 | 입력 | `landmarks:{sid}`, `commands:{sid}` | 구독해서 PC WebSocket으로 전달 |
 | 입력 | `frames:{sid}` | PiP가 켜진 PC만 구독, 같은 바이너리 형식으로 전달 |
 | 키 | `session:{sid}`, `health:*` | 세션 TTL(연결 중 연장), 하트비트 조회 |

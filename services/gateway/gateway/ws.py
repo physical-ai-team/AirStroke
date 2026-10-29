@@ -35,6 +35,7 @@ from .protocol import (
     Pong,
     Status,
     forward_text,
+    jpeg_size,
     parse_client_text,
     pip_frame,
     unpack_mobile_frame,
@@ -219,11 +220,14 @@ async def ws_mobile(ws: WebSocket, sid: str) -> None:
         capture = (
             None if header.capture_ts is None else peer.clock.to_server_time(header.capture_ts)
         )
+        width, height = jpeg_size(jpeg) or (None, None)
         msg = FrameMsg(
             ts=gw_recv,
             seq=header.seq,
             jpeg_base64=base64.b64encode(jpeg).decode("ascii"),
             mirror=header.mirror,
+            width=width,
+            height=height,
             trace=Trace(capture=capture, gw_recv=gw_recv),
         )
         await r.publish(channel, msg.model_dump_json())

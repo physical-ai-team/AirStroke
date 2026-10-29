@@ -40,6 +40,9 @@ class FrameMsg(_Msg):
     seq: int
     jpeg_base64: str
     mirror: bool = False  # 전면(셀카) 카메라면 True → gesture가 x좌표를 반전
+    # JPEG 크기(px). 폰을 세로로 들면 width < height. None이면 CAMERA_WIDTH:HEIGHT 비율로 간주
+    width: int | None = None
+    height: int | None = None
     trace: Trace = Field(default_factory=Trace)
 
 
@@ -58,6 +61,8 @@ class LandmarksMsg(_Msg):
     ts: float
     seq: int
     mirror: bool = False
+    width: int | None = None  # 원본 프레임 크기 (FrameMsg 값을 그대로 옮김)
+    height: int | None = None
     hands: list[Hand] = Field(default_factory=list)
     trace: Trace = Field(default_factory=Trace)
 

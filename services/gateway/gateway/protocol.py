@@ -115,6 +115,24 @@ def unpack_mobile_frame(data: bytes) -> tuple[MobileFrameHeader, bytes]:
     return header, jpeg
 
 
+def jpeg_size(jpeg: bytes) -> tuple[int, int] | None:
+    """SOF 마커에서 (width, height)만 읽는다 (디코드 없음). 못 찾으면 None."""
+    i = 2
+    while i + 9 <= len(jpeg):
+        if jpeg[i] != 0xFF:
+            return None
+        marker = jpeg[i + 1]
+        if marker == 0xFF:  # 채움 바이트
+            i += 1
+            continue
+        # SOF0~SOF15 (DHT·JPG·DAC 제외)
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+            height, width = struct.unpack_from(">HH", jpeg, i + 5)
+            return (width, height) if width and height else None
+        i += 2 + int.from_bytes(jpeg[i + 2 : i + 4], "big")
+    return None
+
+
 def pip_frame(msg: FrameMsg, jpeg: bytes) -> bytes:
     header = PipFrameHeader(ts=msg.ts, seq=msg.seq, mirror=msg.mirror, trace=msg.trace)
     return pack_frame(header, jpeg)

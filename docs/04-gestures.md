@@ -42,14 +42,19 @@ landmarks → ① 손 선택 → ② 손가락 펴짐 판별 → ③ 제스처 �
 ### ⑤ 좌표 변환
 기준 점은 **검지 끝(8번)** 입니다.
 1. `mirror=true`(셀카)이면 `x = 1 - x`로 반전합니다. 후면 카메라에서는 반전하지 않습니다.
-2. 카메라 중앙 `ACTIVE_AREA`(기본 0.7) 영역을 캔버스 전체로 매핑합니다.
+2. 카메라 중앙 영역을 캔버스 전체로 매핑합니다. 중앙 영역은 **프레임 안에 들어가는 가장 큰 '캔버스 비율' 사각형의 `ACTIVE_AREA`(기본 0.7)배**입니다(D-018).
    ```
-   m = (1 - ACTIVE_AREA) / 2
-   x' = clamp((x - m) / ACTIVE_AREA, 0, 1)
-   y' = clamp((y - m) / ACTIVE_AREA, 0, 1)
+   fa = width / height                      # 프레임 비율 (landmarks 의 width·height, 없으면 ca)
+   ca = CAMERA_WIDTH / CAMERA_HEIGHT        # 캔버스 비율 (/api/config 의 camera)
+   w = ACTIVE_AREA * min(1, ca / fa)        # 중앙 영역 가로 (프레임 기준 0~1)
+   h = ACTIVE_AREA * min(1, fa / ca)        # 중앙 영역 세로
+   x' = clamp((x - (1 - w) / 2) / w, 0, 1)
+   y' = clamp((y - (1 - h) / 2) / h, 0, 1)
    ```
-   손을 화면 가장자리까지 뻗지 않아도 캔버스 끝까지 닿게 하기 위한 변환입니다.
-- **그림판도 손 뼈대 21점에 같은 변환을 적용해야** 커서와 뼈대가 어긋나지 않습니다. 변환 파라미터는 gateway의 `/api/config`로 받습니다.
+   - 손을 화면 가장자리까지 뻗지 않아도 캔버스 끝까지 닿게 하기 위한 변환입니다.
+   - 가로 4:3 프레임이면 `w = h = ACTIVE_AREA`입니다.
+   - 폰을 세로(3:4)로 들면 `w = 0.7`, `h = 0.39`가 되어 가로·세로 배율이 같아집니다(손으로 그린 원이 타원이 되지 않음). 대신 영상 위아래 일부는 쓰지 않습니다.
+- **그림판도 손 뼈대 21점에 같은 변환을 적용해야** 커서와 뼈대가 어긋나지 않습니다. `ACTIVE_AREA`와 캔버스 비율은 gateway의 `/api/config`로, 프레임 크기는 `landmarks`의 `width`·`height`로 받습니다. 구현: [mapping.py](../services/gesture/gesture/core/mapping.py)
 
 ### ⑥ 스무딩 — One Euro Filter
 - x와 y에 각각 적용합니다. 파라미터는 `ONE_EURO_MIN_CUTOFF`(1.0), `ONE_EURO_BETA`(0.007), `ONE_EURO_D_CUTOFF`(1.0)입니다(초기안).

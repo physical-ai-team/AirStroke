@@ -8,17 +8,19 @@
 
 ### `frames:{session_id}` — gateway → vision (+ PiP용으로 gateway 자신)
 ```jsonc
-{"ts": 0, "seq": 0, "jpeg_base64": "...", "mirror": true, "trace": {...}}
+{"ts": 0, "seq": 0, "jpeg_base64": "...", "mirror": true, "width": 640, "height": 480, "trace": {...}}
 ```
 - `mirror`: 전면(셀카) 카메라면 `true`입니다. gesture가 이 값을 보고 x좌표를 반전합니다.
+- `width`, `height`: JPEG 크기(px)입니다. gateway가 JPEG 헤더에서 읽어 채웁니다. 폰을 세로로 들면 `width < height`입니다(세로 허용, D-018). 읽지 못하면 `null`이고, 이때는 `CAMERA_WIDTH:CAMERA_HEIGHT` 비율로 간주합니다.
 
 ### `landmarks:{session_id}` — vision → gesture, gateway(PC 전달)
 ```jsonc
-{"ts": 0, "seq": 0, "mirror": true,
+{"ts": 0, "seq": 0, "mirror": true, "width": 640, "height": 480,
  "hands": [{"handedness": "Right", "score": 0.97, "points": [[x, y, z], ... 21개]}],
  "trace": {...}}
 ```
 - 좌표는 **카메라 원본 기준**(반전·매핑 전)이고 x, y ∈ [0, 1]입니다. 손이 없으면 `hands: []`입니다.
+- `width`, `height`: vision이 `frames` 값을 그대로 옮깁니다. 정규화 좌표를 px로 바꾸거나 화면 비율을 맞출 때 씁니다.
 - 점 순서는 MediaPipe 기준입니다: 0 손목, 1-4 엄지, 5-8 검지, 9-12 중지, 13-16 약지, 17-20 소지.
 
 ### `commands:{session_id}` — gesture → gateway(PC 전달)
@@ -40,6 +42,8 @@
 ### `seq`
 - 세션별 프레임 번호입니다. 폰이 매기며 이후 단계는 그대로 이어받습니다.
 - ack 처리와 프레임 버림 통계에 씁니다.
+- 폰은 **실제로 보낸 프레임에만** 번호를 매깁니다. 흐름 제어로 버린 프레임은 번호를 쓰지 않으므로, 폰에서 버린 수는 `seq` 공백이 아니라 폰 페이지의 통계로 셉니다. `seq` 공백은 gateway 이후(vision의 최신 프레임 정책 등)에서 버려진 것입니다.
+- 재접속하면 `seq`가 다시 0부터 시작할 수 있습니다.
 
 ## Redis 키
 | 키 | 값 | TTL |
@@ -76,6 +80,7 @@
   [4바이트 big-endian 헤더 길이 N][N바이트 UTF-8 JSON 헤더][JPEG 바이트]
   ```
   헤더: `{"seq": 12, "capture_ts": <폰 시계 ms>, "mirror": true}`
+  - 프레임은 가로·세로 모두 됩니다. 폰은 영상 비율을 유지해 보내고, gateway가 JPEG에서 크기를 읽어 `frames`의 `width`·`height`에 넣습니다.
   - gateway는 `trace.capture = capture_ts - offset_ms`로 환산합니다. **첫 시계 추정(첫 pong) 전에는 `trace.capture = null`** 입니다. `ts`와 `trace.gw_recv`는 gateway 수신 시각입니다.
   - 형식이 틀린 프레임(헤더 길이·JSON·`seq` 누락, JPEG가 아님)은 경고 로그만 남기고 버리며 **ack도 보내지 않습니다.**
 - **gateway → 폰**: `{"type":"ack","seq":12}`. Redis publish를 마친 뒤 보냅니다.

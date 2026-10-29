@@ -124,6 +124,19 @@ def test_mobile_frame_published_with_converted_capture(env):
     assert msg.trace.capture <= msg.trace.gw_recv + 50
 
 
+def test_frame_size_from_jpeg(env):
+    client, r, sid = env
+    sub = r.pubsub()
+    client.portal.call(sub.subscribe, channels.frames(sid))
+    # SOI + SOF0(높이 640, 너비 480) — 폰을 세로로 든 프레임
+    jpeg = b"\xff\xd8\xff\xc0" + struct.pack(">HBHHB", 11, 8, 640, 480, 1) + bytes(3)
+    with client.websocket_connect(f"/ws/mobile/{sid}") as ws:
+        ws.send_bytes(pack_frame(MobileFrameHeader(seq=1), jpeg))
+        assert next_msg(ws) == {"type": "ack", "seq": 1}
+    msg = published_frame(client, sub)
+    assert (msg.width, msg.height) == (480, 640)
+
+
 def test_capture_is_none_before_clock_estimate(env):
     client, r, sid = env
     sub = r.pubsub()
