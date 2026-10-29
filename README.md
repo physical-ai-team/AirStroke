@@ -98,7 +98,7 @@ Docker Desktop(Windows) 컨테이너에서는 웹캠을 쓸 수 없으므로, �
 ```powershell
 ipconfig                              # 'Wi-Fi' 어댑터의 IPv4 주소 확인
 python tools/gen_cert.py              # 목록에서 그 IP 선택 (vEthernet/WSL/Docker/VPN 어댑터는 고르지 말 것)
-docker compose restart gateway
+docker compose up -d                  # restart 말고 up -d (restart는 .env의 PUBLIC_HOST를 다시 읽지 않음)
 ```
 폰에서는 새 인증서의 경고를 **다시 수락**해야 합니다.
 
