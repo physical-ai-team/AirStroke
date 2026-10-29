@@ -36,6 +36,8 @@ const els = {
 const RECONNECT_MAX_MS = 5000;
 const FPS_WINDOW_MS = 1000;
 const ACK_AVG_SAMPLES = 30;
+const CLOSE_UNKNOWN_SESSION = 4404; // 모르는(만료된) 세션
+const CLOSE_REPLACED = 4409; // 같은 세션에 새 폰이 접속해 밀려남
 
 const state = {
   sid: new URLSearchParams(location.search).get('s'),
@@ -139,9 +141,21 @@ function connect() {
     }
   };
 
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     if (state.ws !== ws) return;
     state.inflight.clear();
+    // gateway가 정한 종료 코드(docs/03-protocol.md): 재접속해도 소용없거나 해로운 경우
+    if (ev.code === CLOSE_UNKNOWN_SESSION || ev.code === CLOSE_REPLACED) {
+      stopCapture();
+      els.btnStart.disabled = true;
+      setConn(ev.code === CLOSE_REPLACED ? '다른 폰이 연결됨' : '세션 없음', 'bad');
+      showNotice(
+        ev.code === CLOSE_REPLACED
+          ? '같은 세션에 다른 폰이 접속해서 연결이 끊겼습니다.\n다시 쓰려면 이 페이지를 새로고침하세요.'
+          : '세션이 없거나 만료되었습니다.\nPC 그림판에서 새 QR 코드를 스캔하세요.',
+      );
+      return;
+    }
     setConn(`끊김 — ${(state.reconnectMs / 1000).toFixed(1)}초 뒤 재연결`, 'bad');
     setTimeout(connect, state.reconnectMs);
     state.reconnectMs = Math.min(state.reconnectMs * 2, RECONNECT_MAX_MS);
@@ -280,17 +294,21 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- 버튼 ----------
 
+function stopCapture() {
+  state.running = false;
+  clearTimeout(state.timer);
+  state.stream?.getTracks().forEach((t) => t.stop());
+  state.stream = null;
+  state.wakeLock?.release();
+  els.btnStart.textContent = '카메라 시작';
+  els.btnStart.classList.remove('secondary');
+  els.btnFlip.disabled = true;
+  els.cam.textContent = '-';
+}
+
 els.btnStart.addEventListener('click', async () => {
   if (state.running) {
-    state.running = false;
-    clearTimeout(state.timer);
-    state.stream?.getTracks().forEach((t) => t.stop());
-    state.stream = null;
-    state.wakeLock?.release();
-    els.btnStart.textContent = '카메라 시작';
-    els.btnStart.classList.remove('secondary');
-    els.btnFlip.disabled = true;
-    els.cam.textContent = '-';
+    stopCapture();
     return;
   }
   try {
