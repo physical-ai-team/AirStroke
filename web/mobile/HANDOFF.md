@@ -4,7 +4,7 @@
 (`docs/`와 루트 설정은 팀장 영역이라 내 기록은 이 폴더 안에만 둔다.)
 
 ## 현재 상태 (2026-10-29)
-- 브랜치 `feat/mobile-camera` (origin에 push됨, **PR 없음, main 병합 없음**). 병합 전에는 팀 확인 필요.
+- **PR #8로 main 병합됨 (2026-10-29, `57a8ff1`)**. 이후 작업도 `feat/mobile-camera`에서 하고 PR로 올린다.
 - 구현됨: 카메라 시작/전환, `/api/config` 수신, 바이너리 프레임 송신, 흐름 제어(inflight 2), ping→pong, clock 표시, Wake Lock, 재연결(0.5→5초), close 4404/4409 처리, 상태 패널.
 - 확인한 것: main 병합 후 `pytest` 57개·`ruff` 통과. 진짜 gateway 코드(fakeredis)에 `app.js`를 붙인 Node 하네스로 15fps·ack 1ms·4404·4409 확인.
 - 2026-10-29 오후(두 번째 PC) 추가: M-13 오류별 안내, M-14 카메라 방향 기억, M-25 ack 3초 타임아웃, M-26 백그라운드 일시정지·재개, M-42~44 프레임 크기·대역폭·인코딩 시간·ack p50/p95, **M-45 측정 CSV 저장**. Q3 해결(gateway는 publish 오류 시 연결을 닫음).
@@ -30,7 +30,7 @@
 2. 기기×네트워크×설정 측정표(PRD 7.2) — CSV를 이 폴더 `measurements/`에 모으고 요약은 `measurements.md`에.
 3. (5단계) 10분 연속 시험(시연 모드로, CSV의 배터리 열로 소모량 확인), 시연 체크리스트 폰 항목 검토. (M-46·47은 구현 완료)
 4. 팀장에게 물을 것(PRD 9절): Q1 세로 프레임 허용 여부, Q2 seq 규칙 명시, Q6 포트 8443 충돌 안내, gateway 테스트 멈춤(위 "현재 상태"). (Q3은 해결)
-5. main 병합이 필요해지면 **병합하지 말고 사용자에게 알려 팀 확인 메시지부터** 보낸다. PR 본문은 `.github/pull_request_template.md`, 제목은 `feat(mobile): …`.
+5. 다음 변경도 PR로 올린다(본문은 `.github/pull_request_template.md`, 제목은 `feat(mobile): …`). 병합은 사용자가 지시할 때만.
 
 ## 시험하는 법
 **A. Docker 있는 PC (정식)**: `copy .env.example .env` → `python tools/gen_cert.py`(LAN IP 선택) → `docker compose up -d --build` → PC 브라우저 `https://<LAN-IP>:8443/` 에서 QR 스캔. 또는 `curl.exe -k -X POST https://<LAN-IP>:8443/api/sessions` 로 세션을 만들고 폰에서 `mobile_url` 접속.
