@@ -10,6 +10,7 @@
  *   - ping 을 받으면 즉시 pong 으로 답한다(시계 동기화)
  *   - 탭이 백그라운드로 가면 캡처를 멈추고, 돌아오면 다시 연다
  *   - 1초마다 통계를 쌓아 "측정 CSV" 버튼으로 내려받는다(디바이스·네트워크 측정용)
+ *   - 시연 모드: 통계를 한 줄로 접고 미리보기를 줄인다. 배터리 잔량을 표시한다(지원 시)
  * 계약: docs/03-protocol.md "브라우저 ↔ gateway 계약", 요구사항: docs/05-ui.md
  *
  * 실행: gateway가 /mobile/ 로 서빙한다. PC 그림판의 QR을 폰으로 스캔하면 열린다.
@@ -35,8 +36,14 @@ const els = {
   encode: $('st-encode'),
   clock: $('st-clock'),
   wake: $('st-wake'),
+  batt: $('st-batt'),
   btnCsv: $('btn-csv'),
   csvRows: $('csv-rows'),
+  btnDemo: $('btn-demo'),
+  summary: $('summary'),
+  sumConn: $('sum-conn'),
+  sumFps: $('sum-fps'),
+  sumBatt: $('sum-batt'),
 };
 
 const RECONNECT_MAX_MS = 5000;
@@ -49,6 +56,8 @@ const ACK_TIMEOUT_MS = 3000;
 const LOG_INTERVAL_MS = 1000; // 측정 기록 간격
 const LOG_MAX_ROWS = 3600; // 1시간치. 넘으면 오래된 줄부터 버린다(메모리 제한)
 const FACING_KEY = 'airstroke.mobile.facing'; // 마지막 카메라 방향(localStorage)
+const DEMO_KEY = 'airstroke.mobile.demo'; // 시연 모드 켜짐 여부(localStorage)
+const BATTERY_LOW = 0.2; // 이 아래면 경고색
 const CLOSE_UNKNOWN_SESSION = 4404; // 모르는(만료된) 세션
 const CLOSE_REPLACED = 4409; // 같은 세션에 새 폰이 접속해 밀려남
 
@@ -75,6 +84,7 @@ const state = {
   encodeMs: [],
   clock: null, // 마지막 clock 메시지 {offset_ms, rtt_ms}
   wakeLock: null,
+  battery: null, // BatteryManager(지원 시)
   log: [], // 측정 기록(1초 단위)
   logStart: 0,
   logLast: { sent: 0, dropped: 0, ackTimeouts: 0 },
@@ -92,11 +102,19 @@ function loadFacing() {
   }
 }
 
-function saveFacing(facing) {
+function saveSetting(key, value) {
   try {
-    localStorage.setItem(FACING_KEY, facing);
+    localStorage.setItem(key, value);
   } catch {
     /* 저장 못 해도 동작에는 지장 없음 */
+  }
+}
+
+function loadDemo() {
+  try {
+    return localStorage.getItem(DEMO_KEY) === '1';
+  } catch {
+    return false;
   }
 }
 
@@ -139,13 +157,16 @@ function showNotice(text) {
 }
 
 function setConn(text, cls) {
-  els.conn.textContent = text;
-  els.conn.className = cls;
+  for (const el of [els.conn, els.sumConn]) {
+    el.textContent = text;
+    el.className = cls;
+  }
 }
 
 function renderStats() {
   const s = snapshot();
   els.fps.textContent = s.fps.toFixed(1);
+  els.sumFps.textContent = `${s.fps.toFixed(1)} fps`;
   els.sent.textContent = state.sent;
   els.drop.textContent = state.ackTimeouts
     ? `${state.dropped} (ack 없음 ${state.ackTimeouts})`
@@ -185,6 +206,8 @@ const LOG_COLUMNS = [
   'ack_p95_ms',
   'clock_offset_ms',
   'clock_rtt_ms',
+  'battery_pct',
+  'charging',
 ];
 
 function logTick() {
@@ -215,6 +238,8 @@ function logTick() {
     ack_p95_ms: round(s.ackP95),
     clock_offset_ms: round(state.clock?.offset_ms, 0),
     clock_rtt_ms: round(state.clock?.rtt_ms, 0),
+    battery_pct: state.battery ? Math.round(state.battery.level * 100) : '',
+    charging: state.battery ? Number(state.battery.charging) : '',
   };
   if (!state.log.length) state.logStart = Date.now();
   state.logLast = { sent: state.sent, dropped: state.dropped, ackTimeouts: state.ackTimeouts };
@@ -490,6 +515,45 @@ async function requestWakeLock() {
   }
 }
 
+// ---------- 배터리 (M-47) ----------
+// Battery Status API는 크롬 계열(안드로이드)만 지원. 사파리·파이어폭스는 '미지원'으로 둔다.
+
+function renderBattery() {
+  const b = state.battery;
+  const text = `${Math.round(b.level * 100)}%${b.charging ? ' 충전 중' : ''}`;
+  const cls = !b.charging && b.level < BATTERY_LOW ? 'warn' : '';
+  els.batt.textContent = text;
+  els.batt.className = cls;
+  els.sumBatt.textContent = `배터리 ${text}`;
+  els.sumBatt.className = cls;
+}
+
+async function initBattery() {
+  if (!navigator.getBattery) {
+    els.batt.textContent = '미지원';
+    return;
+  }
+  try {
+    state.battery = await navigator.getBattery();
+  } catch {
+    els.batt.textContent = '미지원';
+    return;
+  }
+  renderBattery();
+  state.battery.addEventListener('levelchange', renderBattery);
+  state.battery.addEventListener('chargingchange', renderBattery);
+}
+
+// ---------- 시연 모드 (M-46) ----------
+
+function setDemo(on) {
+  document.body.classList.toggle('demo', on);
+  els.summary.hidden = !on;
+  els.btnDemo.setAttribute('aria-pressed', String(on));
+  els.btnDemo.textContent = on ? '통계 보기' : '시연 모드';
+  saveSetting(DEMO_KEY, on ? '1' : '0');
+}
+
 // ---------- 시작·중지 ----------
 
 async function startCapture() {
@@ -553,7 +617,7 @@ els.btnFlip.addEventListener('click', async () => {
   els.btnFlip.disabled = true;
   try {
     await openCamera();
-    saveFacing(state.facing);
+    saveSetting(FACING_KEY, state.facing);
     showNotice('');
   } catch (err) {
     state.facing = prev;
@@ -565,11 +629,14 @@ els.btnFlip.addEventListener('click', async () => {
 });
 
 els.btnCsv.addEventListener('click', downloadCsv);
+els.btnDemo.addEventListener('click', () => setDemo(!document.body.classList.contains('demo')));
 
 // ---------- 시작 ----------
 
 async function main() {
   els.sid.textContent = state.sid || '-';
+  setDemo(loadDemo());
+  initBattery();
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
     showNotice('HTTPS가 아니라서 카메라를 쓸 수 없습니다.\nhttps:// 주소로 접속하세요(PC 그림판의 QR 사용).');
     els.btnStart.disabled = true;

@@ -15,6 +15,9 @@
       <div id="notice" hidden></div>
     </div>
 
+    <!-- 시연 모드(M-46)에서만 보이는 한 줄 요약 -->
+    <div id="summary" hidden><b id="sum-conn" class="bad">끊김</b><span id="sum-fps">0.0 fps</span><span id="sum-batt"></span></div>
+
     <section id="stats" aria-live="polite">
       <div class="row"><span>연결</span><b id="st-conn" class="bad">끊김</b></div>
       <div class="row"><span>세션</span><b id="st-sid">-</b></div>
@@ -27,6 +30,7 @@
       <div class="row"><span>인코딩 시간(평균)</span><b id="st-encode">-</b></div>
       <div class="row"><span>시계 차이 / RTT</span><b id="st-clock">-</b></div>
       <div class="row"><span>화면 꺼짐 방지</span><b id="st-wake">-</b></div>
+      <div class="row"><span>배터리</span><b id="st-batt">-</b></div>
       <div class="row"><span>측정 기록</span><b id="csv-rows">-</b></div>
     </section>
 
@@ -34,7 +38,10 @@
       <button id="btn-start" type="button">카메라 시작</button>
       <button id="btn-flip" type="button" disabled>전면 / 후면 전환</button>
     </div>
-    <button id="btn-csv" type="button" class="secondary" disabled>측정 CSV 저장</button>
+    <div id="extras">
+      <button id="btn-csv" type="button" class="secondary" disabled>측정 CSV 저장</button>
+      <button id="btn-demo" type="button" class="secondary" aria-pressed="false">시연 모드</button>
+    </div>
   </main>
   <canvas id="encoder" hidden></canvas>
   <script src="app.js"></script>

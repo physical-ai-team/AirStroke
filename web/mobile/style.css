@@ -100,9 +100,33 @@ button {
 button:disabled { opacity: 0.4; }
 button.secondary { background: #374151; }
 
-#btn-csv {
-  flex: none;
-  width: 100%;
+#extras {
+  display: flex;
+  gap: 10px;
+}
+#extras button {
   min-height: 44px;
   font-size: 15px;
 }
+#btn-demo[aria-pressed="true"] { background: var(--accent); }
+
+/* 시연 모드(M-46): 통계는 한 줄 요약만, 미리보기는 작은 썸네일.
+   캡처가 video 요소에서 그리므로 숨기지(display:none) 않고 크기만 줄인다. */
+#summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+#summary[hidden] { display: none; }
+#summary span { color: var(--muted); }
+
+body.demo #preview {
+  width: 40%;
+  align-self: center;
+}
+body.demo #stats { display: none; }
