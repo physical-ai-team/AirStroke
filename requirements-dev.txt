@@ -1,0 +1,9 @@
+# 로컬 개발 전용 (컨테이너에는 설치하지 않음)
+pytest==9.2.0
+ruff==0.17.3
+# fastapi TestClient 용
+httpx==0.28.1
+fakeredis==2.40.0
+# tools/gen_cert.py
+cryptography==50.0.2
+psutil==7.2.2

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "airstroke-shared"
+version = "0.1.0"
+description = "AirStroke 공통 메시지 스키마·채널·설정·로깅"
+requires-python = ">=3.11,<3.12"
+# 버전은 shared/requirements.txt 에서 고정한다
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["airstroke_shared*"]

@@ -1,0 +1,2 @@
+# gesture 전용 의존성 (pydantic, redis 는 shared/requirements.txt)
+# 현재 추가 의존성 없음 — 21점 계산은 표준 라이브러리로 충분
