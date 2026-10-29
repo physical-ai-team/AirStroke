@@ -166,7 +166,8 @@ def main() -> None:
     print(f"\n인증서 생성 완료: {CERT_DIR / 'cert.pem'} (SAN: {ip}, 127.0.0.1, localhost)")
     print(f".env PUBLIC_HOST={ip}")
     print("\n다음 단계:")
-    print("  1) docker compose up -d   (이미 떠 있으면: docker compose restart gateway)")
+    # restart는 .env를 다시 읽지 않아 PUBLIC_HOST가 반영되지 않는다. up -d는 바뀐 설정으로 재생성
+    print("  1) docker compose up -d   (이미 떠 있어도 restart 말고 up -d)")
     print(f"  2) 폰에서 https://{ip}:{port}/mobile/ 접속 → 인증서 경고 '고급 → 계속' 수락")
 
 
