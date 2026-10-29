@@ -39,11 +39,19 @@
 ```python
 # run_gw.py  — 실행: python -I run_gw.py 9443 key.pem cert.pem
 import sys
+
 sys.path.insert(0, "<repo>/services/gateway")
 import fakeredis.aioredis as fr, uvicorn
 from gateway.main import create_app
-uvicorn.run(create_app(fr.FakeRedis()), host="0.0.0.0", port=int(sys.argv[1]),
-            log_level="warning", ssl_keyfile=sys.argv[2], ssl_certfile=sys.argv[3])
+
+uvicorn.run(
+    create_app(fr.FakeRedis()),
+    host="0.0.0.0",
+    port=int(sys.argv[1]),
+    log_level="warning",
+    ssl_keyfile=sys.argv[2],
+    ssl_certfile=sys.argv[3],
+)
 ```
 인증서: `openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 30 -subj "/CN=<IP>" -addext "subjectAltName=IP:<IP>,DNS:localhost"`. 서버 실행 후 `curl -k -X POST https://<IP>:9443/api/sessions` 로 세션을 만들면 응답의 `mobile_url`을 폰에서 연다(서버를 재시작하면 세션이 사라지니 다시 만든다). 폰에서 인증서 경고는 "고급 → 계속".
 
