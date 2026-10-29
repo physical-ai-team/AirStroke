@@ -15,7 +15,8 @@ PC(/canvas) ◀──WebSocket────┴───────────�
 | vision (MediaPipe, CPU) | 김정윤 | [services/vision/README.md](services/vision/README.md) |
 | gesture (제스처 분류) | 이기태 | [services/gesture/README.md](services/gesture/README.md) |
 | 폰 카메라 페이지 | 박민성 | `web/mobile/`, [docs/05-ui.md](docs/05-ui.md) |
-| PC 그림판 UI | 조아람 | `web/canvas/`, [docs/05-ui.md](docs/05-ui.md) |
+| PC 그림판 UI (손 뼈대 오버레이 포함) | 조아람 | `web/canvas/`, [docs/05-ui.md](docs/05-ui.md) |
+| PC 그림판 PiP 패널 | 박민성 (사전 합의) | `web/canvas/pip.js`, `pip.css` |
 
 ## 기능
 
@@ -33,11 +34,12 @@ PC(/canvas) ◀──WebSocket────┴───────────�
 | 👍 엄지만 세우기 | 실행 취소 (선 하나 단위, 약 0.4초 유지하면 한 번 실행. 또 하려면 손을 바꿨다가 다시) | 👍 실행 취소 |
 
 **그 밖의 기능**
-- **PC 그림판**: 색 팔레트·굵기·실행 취소(`Ctrl+Z`)·전체 지우기·PNG 저장(`Ctrl+S`) 버튼, 커서와 제스처 라벨 표시, 테스트 모드(`?mock=1`, 손·폰 없이 마우스로 확인)
+- **PC 그림판**: 손 뼈대(21점) 오버레이와 제스처 라벨(이동 중엔 흐리게, 그리기 중엔 검지 끝 강조), 색 팔레트·굵기·실행 취소(`Ctrl+Z`)·전체 지우기·PNG 저장(`Ctrl+S`) 버튼, 테스트 모드(`?mock=1`, 손·폰 없이 마우스로 확인)
+- **PiP(폰 영상) 패널**: 기본 꺼짐. 켜면 그림판 모서리에 폰 카메라 영상을 보여줌(모서리 이동·크기 조절, 셀카는 좌우 반전). 꺼져 있으면 영상을 PC로 보내지 않음
 - **폰 페이지**: 전면/후면 카메라 전환, 세로·가로 모두 가능(그려지는 모양이 찌그러지지 않음), 송신 fps·버린 프레임·지연 등 상태 표시, 측정 CSV 저장, 시연 모드, 화면 꺼짐 방지, 배터리 표시
 - **연결**: QR 한 번으로 페어링, 끊기면 자동 재연결, 같은 세션에 다른 폰이 붙으면 기존 폰을 정리
 - **설정**: 해상도·fps·JPEG 품질·제스처 민감도 등은 `.env`로 조절 ([.env.example](.env.example))
-- 진행 중: 손 뼈대 오버레이, 지연시간 표시, PiP(폰 영상) 패널 — [docs/06-roadmap.md](docs/06-roadmap.md)
+- 진행 중: FPS·지연시간 표시, 시연 모드 — [docs/06-roadmap.md](docs/06-roadmap.md)
 
 기획·설계 문서는 **[docs/](docs/README.md)** 에 있습니다(개요, 아키텍처, 프로토콜, 제스처, UI, 로드맵, 팀 규칙, 개발 환경, 시연, 결정 기록).
 Claude Code가 따르는 작업 규칙은 [CLAUDE.md](CLAUDE.md)에 있습니다.
